@@ -1,196 +1,205 @@
 #include "w5500.h"
 #include "spi.h"
-typedef void (*W5500_InitCallback_t)(void);
-
-static volatile W5500_InitState w5_init_state = W5_STATE_IDLE;
-static W5500_NetConfig w5_cfg;   // یک کپی از تنظیمات
-static uint8_t w5_last_error;    // کد خطا اگر خواستی
-static uint32_t w5_reset_timestamp = 0;
-static uint8_t  w5_reset_hw_phase;
-static uint8_t  w5_reset_sw_phase;
-//static AddressCaster	adrs;
-//
-uint8_t W5500_IsReady(void){
-	return (w5_init_state == W5_STATE_DONE) ? 1U : 0U;
+void 							W5500_Handle_init							(W5500_Handler* hW5){
+	hW5->hspi     			= W5500_UNIT_SPI;        // یا هر SPI دیگه
+	hW5->Gpio.cs_port  	= CS_PORT;
+	hW5->Gpio.cs_pin   	= CS_PIN;
+	hW5->Gpio.rst_port 	= RST_PORT;
+	hW5->Gpio.rst_pin  	= RST_PIN;
+	hW5->Gpio.int_port 	= INT_PORT;
+	hW5->Gpio.int_pin  	= INT_PIN;
 }
-
-W5500_InitState W5500_GetInitState(void){
-	return w5_init_state;
+void 							W5500_HardReset								(W5500_Handler* hW5){
+	HAL_GPIO_WritePin(hW5->Gpio.rst_port, hW5->Gpio.rst_pin, GPIO_PIN_RESET);
+	HAL_Delay(2);  // طبق دیتاشیت حداقل 2ms
+	HAL_GPIO_WritePin(hW5->Gpio.rst_port, hW5->Gpio.rst_pin, GPIO_PIN_SET);
+	HAL_Delay(10); // چند ms صبر تا چیپ کامل بالا بیاد
 }
-
-uint8_t W5500_GetLastError(void){
-	return w5_last_error;
-}
-//hardware reset -> can use in all states
-static bool W5500_HardReset(void){
-	switch(w5_reset_hw_phase){
-		case 0:{
-			// شروع ریست سخت‌افزاری: پین را LOW کن
-			HAL_GPIO_WritePin(RST_PORT, RST_PIN,GPIO_PIN_RESET);
-			w5_reset_timestamp = HAL_GetTick();
-			w5_reset_hw_phase = 1;
-			break;
-		}
-    case 1:{
-			// حداقل 2ms پین در حالت LOW
-			if (HAL_GetTick() - w5_reset_timestamp >= 2) {
-				HAL_GPIO_WritePin(RST_PORT, RST_PIN,GPIO_PIN_SET);
-				w5_reset_timestamp = HAL_GetTick();
-				w5_reset_hw_phase = 2;
-			}
-			break;
-		}
-    case 2:{
-			// چند ms صبر کن تا چیپ بالا بیاد (مثلاً 10ms)
-			if (HAL_GetTick() - w5_reset_timestamp >= 10) {
-				w5_reset_hw_phase = 0;
-				return true;
-			}
-			break;
-		}
-    default:{
-			w5_reset_hw_phase = 0;
-			break;
-		}
+HAL_StatusTypeDef W5500_WriteReg								(W5500_Handler* hW5 ,const W5500_RegOp* op){
+	if (op->len == 0 || op->len > W5_MAX_REG_DATA){
+		return HAL_ERROR;	
+	}	
+	uint8_t tx[W5_FRAME_SIZE];
+	tx[0] = (uint8_t)(op->addr >> 8);
+	tx[1] = (uint8_t)(op->addr & 0xFF);
+	tx[2] = W5500_ControlByte(op->block,OM_VDM,RW_WRITE);
+	for (uint16_t i = 0; i < op->len; i++){
+		tx[3 + i] = op->data[i];	
+	}	
+	W5500_Select(hW5);	
+	HAL_StatusTypeDef st = HAL_SPI_Transmit(hW5->hspi, tx,W5_HDR_SIZE + op->len, 1000);
+	W5500_Unselect(hW5);	
+	return st;	
+}	
+HAL_StatusTypeDef W5500_ReadReg									(W5500_Handler* hW5 ,const W5500_RegOp* op){
+	if (op->len == 0 || op->len > W5_MAX_REG_DATA){
+		return HAL_ERROR;	
+	}	
+	uint8_t hdr[W5_HDR_SIZE];
+	hdr[0] = (uint8_t)(op->addr >> 8);
+	hdr[1] = (uint8_t)(op->addr & 0xFF);
+	hdr[2] = W5500_ControlByte(op->block,OM_VDM,RW_READ);
+	W5500_Select(hW5);	
+	HAL_StatusTypeDef st = HAL_SPI_Transmit(hW5->hspi,hdr,sizeof(hdr),1000);
+	if (st == HAL_OK){	
+		st = HAL_SPI_Receive(hW5->hspi, op->data, op->len, 1000);
+  }	
+	W5500_Unselect(hW5);	
+	return st;
+}	
+HAL_StatusTypeDef W5500_SoftReset								(W5500_Handler* hW5){
+	uint8_t val 					= M_RST;
+	W5500_RegOp 			op;
+	op.addr  							= CRB_MR;
+	op.block 							= BSB_Common;
+	op.data  							= &val;
+	op.len   							= CR_DATA_LEN_MR;   // که ۱ است
+	HAL_StatusTypeDef st 	= W5500_WriteReg(hW5,&op);
+	if(st != HAL_OK){
+		return st;
 	}
-	return false;
+	HAL_Delay(2);  // کمی صبر کنیم
+	return HAL_OK;
 }
-//software reset -> can use in all states
-static bool W5500_SoftReset(void){
-	switch (w5_reset_sw_phase) {
-    case 0: {
-			uint8_t tx[4];
-			uint8_t rx[4];
-			
-			uint16_t addr = CRB_MR;
-			tx[0] = (uint8_t)(addr >> 8);    // high
-			tx[1] = (uint8_t)(addr & 0xFF);  // low
-			tx[2] = ControlByte(BSB_Common, OM_VDM, RW_WRITE);
-			tx[3] = M_RST;  // بیت 7 = 1 → نرم‌ریست
+uint8_t W5500_Version														(W5500_Handler* hW5){
+	uint8_t ver = 0;
+	W5500_RegOp op;
+	op.addr  = CRB_VERSIONR;
+	op.block = BSB_Common;
+	op.data  = &ver;
+	op.len   = CR_DATA_LEN_VERSIONR;
 
-			W5500_Select();
-			HAL_StatusTypeDef st = HAL_SPI_TransmitReceive(&hspi2, tx, rx, 4, 1000);
-			W5500_Unselect();
-
-			if (st != HAL_OK) {
-				w5_last_error = 1;   // مثلا کد خطا برای نرم‌ریست
-				w5_reset_sw_phase = 0;
-				return false;
-			}
-
-			w5_reset_timestamp = HAL_GetTick();
-			w5_reset_sw_phase = 1;
-			break;
-    }
-
-    case 1:{
-        // کمی صبر کن تا ریست داخلی انجام شود (مثلاً 2ms)
-			if (HAL_GetTick() - w5_reset_timestamp >= 2) {
-					w5_reset_sw_phase = 0;
-					return true;
-			}
-			break;
-		}
-    default:{
-			w5_reset_sw_phase = 0;
-			break;
-		}
+	if (W5500_ReadReg(hW5, &op) == HAL_OK){
+		return op.data[0];
 	}
-    return false;
+	return 0;
 }
-//init starts
-void W5500_InitStart(const W5500_NetConfig *cfg){
-	w5_cfg = *cfg;  // کپی تنظیمات
-	w5_last_error = 0;
-	HAL_GPIO_WritePin(RST_PORT, RST_PIN,GPIO_PIN_SET);
-	W5500_Unselect();
-	w5_init_state = W5_STATE_RESET_HW; // تنظيم مرحله
-	w5_reset_hw_phase = 0;   // شروع از فاز صفر
+static HAL_StatusTypeDef W5500_WriteCommonRegBlock(W5500_Handler* hW5 ,uint16_t addr ,const uint8_t* data ,uint16_t len){
+	W5500_RegOp op;
+	op.addr  = addr;
+	op.block = BSB_Common;
+	op.data  = (uint8_t*)data;   // cast به خاطر const
+	op.len   = len;
+	return W5500_WriteReg(hW5, &op);
 }
-//init functions
-static void W5_STATE_IDLE_func 					(void){
-	// هیچ کاری نمی‌کنیم. تا وقتی W5500_InitStart صدا نخوره تو همین حالت می‌مونه.
+HAL_StatusTypeDef W5500_WriteGAR								(W5500_Handler* hW5 ,const uint8_t* gar){
+	return W5500_WriteCommonRegBlock(hW5, CRB_GAR0, gar, 4);
 }
-static void W5_STATE_RESET_HW_func    	(void){
-	if(W5500_HardReset()){
-		w5_init_state = W5_STATE_RESET_SW;
-		w5_reset_sw_phase = 0;
+HAL_StatusTypeDef W5500_WriteSUBR								(W5500_Handler* hW5 ,const uint8_t* subr){
+	return W5500_WriteCommonRegBlock(hW5, CRB_SUBR0, subr, 4);
+}
+HAL_StatusTypeDef W5500_WriteSHAR								(W5500_Handler* hW5 ,const uint8_t* shar){
+	return W5500_WriteCommonRegBlock(hW5, CRB_SHAR0, shar, 6);
+}
+HAL_StatusTypeDef W5500_WriteSIPR								(W5500_Handler* hW5 ,const uint8_t* sipr){
+	return W5500_WriteCommonRegBlock(hW5, CRB_SIPR0, sipr, 4);
+}
+HAL_StatusTypeDef W5500_NetConfigure						(W5500_Handler* hW5 ,const W5500_NetConfig* cfg){
+	if (hW5 == NULL || cfg == NULL) {
+		return HAL_ERROR;
 	}
-}
-static void W5_STATE_RESET_SW_func    	(void){
-	if(W5500_SoftReset()){
-		w5_init_state = W5_STATE_READ_VERSION;
+	// 1) Gateway
+	HAL_StatusTypeDef status = W5500_WriteGAR(hW5, cfg->gateway);
+	if (status != HAL_OK) {
+		return status;
 	}
-}
-static void W5_STATE_READ_VERSION_func	(void){
-	uint8_t tx[4];
-	uint8_t rx[4];
-
-	uint16_t addr = CRB_VERSIONR;  					// 0x0039
-
-	tx[0] = (uint8_t)(addr >> 8);          	// high
-	tx[1] = (uint8_t)(addr & 0xFF);        	// low
-	tx[2] = ControlByte(BSB_Common, OM_VDM, RW_READ);
-	tx[3] = 0x00;                          	// dummy
-
-	W5500_Select();
-	HAL_StatusTypeDef st = HAL_SPI_TransmitReceive(&hspi2, tx, rx, 4, 1000);
-	W5500_Unselect();
-
-	if (st != HAL_OK) {
-		w5_last_error = 2;                 // مثلا error code برای read version
-		w5_init_state = W5_STATE_ERROR;
-		return;
+	// 2) Subnet Mask
+	status = W5500_WriteSUBR(hW5, cfg->subnet);
+	if (status != HAL_OK) {
+		return status;
 	}
-
-	uint8_t ver = rx[3];                   // دیتای VERSIONR
-
-	// چک حداقلی: 0x00 یا 0xFF نباشه (احتمال نویز / عدم ارتباط)
-	if (ver != W5500_VERSION) {
-			w5_last_error = 3;                 // نسخه نامعتبر
-			w5_init_state = W5_STATE_ERROR;
-			return;
+	// 3) MAC Address
+	status = W5500_WriteSHAR(hW5, cfg->mac);
+	if (status != HAL_OK) {
+		return status;
 	}
-
-	// می‌تونی اینجا ver رو برای دیباگ نگه داری اگر خواستی
-	// مثلاً یه متغیر global:
-	// w5_version = ver;
-
-	w5_init_state = W5_STATE_CONFIG_PHY;
+	// 4) Source IP Address
+	status = W5500_WriteSIPR(hW5, cfg->ip);
+	if (status != HAL_OK) {
+		return status;
+	}
+	// اگر خواستی: اینجا می‌توانی config را در handler هم ذخیره کنی
+	// hW5->net = *config;   // فقط اگر همچین فیلدی تعریف کرده‌ای
+	return HAL_OK;
 }
-static void W5_STATE_CONFIG_PHY_func  	(void){
-	uint8_t tx[4];
-	uint8_t rx[4];
-	uint16_t addr = CRB_PHYCFGR;
-	
-	tx[0] = (uint8_t)(addr >> 8);          	// high
-	tx[1] = (uint8_t)(addr & 0xFF);        	// low
-	tx[2] = ControlByte(BSB_Common, OM_VDM, RW_WRITE);
-	//tx[3] = PhyByte(x,y,z);
+static HAL_StatusTypeDef W5500_ReadCommonRegBlock(W5500_Handler *hW5 ,uint16_t addr ,uint8_t *data ,uint16_t len){
+	W5500_RegOp op;
+	op.addr  = addr;
+	op.block = BSB_Common;
+	op.data  = data;
+	op.len   = len;
+	return W5500_ReadReg(hW5, &op);
 }
-static void W5_STATE_CONFIG_NET_func  	(void){
+HAL_StatusTypeDef W5500_WriteRTR								(W5500_Handler* hW5 ,uint16_t rtr){
 	
 }
-static void W5_STATE_DONE_func        	(void){
+HAL_StatusTypeDef W5500_WriteRCR								(W5500_Handler* hW5 ,uint8_t  rcr){
 	
 }
-static void W5_STATE_ERROR_func        	(void){
+HAL_StatusTypeDef W5500_ClearIR									(W5500_Handler* hW5){
 	
 }
-//init table
-static const W5500_InitCallback_t W5500_Init_machine[W5_STATE_END] = {
-	[W5_STATE_IDLE 		    ]	= W5_STATE_IDLE_func,
-	[W5_STATE_RESET_HW	  ]	= W5_STATE_RESET_HW_func,
-	[W5_STATE_RESET_SW	  ]	= W5_STATE_RESET_SW_func,
-	[W5_STATE_READ_VERSION]	= W5_STATE_READ_VERSION_func,
-	[W5_STATE_CONFIG_PHY	]	= W5_STATE_CONFIG_PHY_func,
-	[W5_STATE_CONFIG_NET	]	= W5_STATE_CONFIG_NET_func,
-	[W5_STATE_DONE	      ]	= W5_STATE_DONE_func,
-	[W5_STATE_ERROR	      ]	= W5_STATE_ERROR_func,
-};
-//
-void W5500_InitProcess(void){
-	if (w5_init_state < W5_STATE_END) {
-		W5500_Init_machine[w5_init_state]();
+HAL_StatusTypeDef W5500_WriteIMR								(W5500_Handler* hW5 ,uint8_t imr){
+	
+}
+HAL_StatusTypeDef W5500_WriteSIMR								(W5500_Handler* hW5 ,uint8_t simr){
+	
+}
+HAL_StatusTypeDef W5500_ReadPHYCFGR							(W5500_Handler* hW5 ,uint8_t* phycfgr){
+	if (hW5 == NULL || phycfgr == NULL) {
+		return HAL_ERROR;
 	}
+	return W5500_ReadCommonRegBlock(hW5 ,CRB_PHYCFGR ,phycfgr ,CR_DATA_LEN_PHYCFGR);
+}
+HAL_StatusTypeDef W5500_WritePHYCFGR						(W5500_Handler* hW5 ,uint8_t phycfgr){
+	if (hW5 == NULL) {
+		return HAL_ERROR;
+	}
+	return W5500_WriteCommonRegBlock(hW5 ,CRB_PHYCFGR ,&phycfgr ,CR_DATA_LEN_PHYCFGR);
+}
+bool 							W5500_IsLinkUp								(W5500_Handler* hW5){
+	uint8_t reg = 0;
+	if (W5500_ReadPHYCFGR(hW5, &reg) != HAL_OK) {
+		return false;   // اگر نشد بخونیم، محافظه‌کارانه می‌گیم لینک نیست
+	}
+	// بیت PHYCFG_LNK = 0x01 -> 1 یعنی لینک up ، صفر یعنی down
+	return ( (reg & PHYCFG_LNK) != 0 );
+}
+HAL_StatusTypeDef W5500_WaitForLink							(W5500_Handler* hW5 ,uint32_t timeout_ms){
+	if (hW5 == NULL) {
+		return HAL_ERROR;
+	}
+	uint32_t start = HAL_GetTick();
+	while ((HAL_GetTick() - start) < timeout_ms){
+		if (W5500_IsLinkUp(hW5)){
+			return HAL_OK;   // لینک وصل شد
+		}
+		HAL_Delay(100);      // هر 100ms یک‌بار چک کن
+	}
+	// اگر تا timeout بالا نیامد:
+	return HAL_TIMEOUT;
+}
+void 							W5500_SetNetConfigInHandler		(W5500_Handler* hW5 ,const W5500_NetConfig* cfg){
+	
+}
+void 							W5500_GetNetConfigFromHandler	(W5500_Handler* hW5 ,W5500_NetConfig* cfg_out){
+	
+}
+bool 							W5500_ValidateNetConfig				(const W5500_NetConfig* cfg){
+	
+}
+HAL_StatusTypeDef W5500_InitStage1							(W5500_Handler* hW5 ,const W5500_NetConfig* cfg){
+	//handle init
+	//W5500_HardReset
+	//W5500_SoftReset
+	//read W5500_Version
+	//check W5500_Version
+	//set config
+	//write config
+	//set retrys
+	//set interuppt mask
+	//set phy
+	//write phy 
+	//check link up with time out
+	//
 }

@@ -1,7 +1,52 @@
 #ifndef W5500_CONFIG_H
 #define W5500_CONFIG_H
 
-#define W5500_VERSION			0x04
+#define W5500_VERSION											0x04
+//Common Register Block Data Length
+#define CR_DATA_LEN_MR										1
+#define CR_DATA_LEN_GAR										4
+#define CR_DATA_LEN_SUBR									4
+#define CR_DATA_LEN_SHAR									6
+#define CR_DATA_LEN_SIPR									4
+#define CR_DATA_LEN_INTLEVEL							2
+#define CR_DATA_LEN_IR										1
+#define CR_DATA_LEN_IMR										1
+#define CR_DATA_LEN_SIR										1
+#define CR_DATA_LEN_SIMR									1
+#define CR_DATA_LEN_RTR										2
+#define CR_DATA_LEN_RCR										1
+#define CR_DATA_LEN_PTIMER								1
+#define CR_DATA_LEN_PMAGIC								1
+#define CR_DATA_LEN_PHAR									6
+#define CR_DATA_LEN_PSID									2
+#define CR_DATA_LEN_PMRU									2
+#define CR_DATA_LEN_UIPR									4
+#define CR_DATA_LEN_UPORTR								2
+#define CR_DATA_LEN_PHYCFGR								1
+#define CR_DATA_LEN_VERSIONR							1
+//Socket Register Block Data Length
+#define SR_DATA_LEN_SX_MR									1
+#define SR_DATA_LEN_SX_CR									1
+#define SR_DATA_LEN_SX_IR									1
+#define SR_DATA_LEN_SX_SR									1
+#define SR_DATA_LEN_SX_PORT								2
+#define SR_DATA_LEN_SX_DHAR								6
+#define SR_DATA_LEN_SX_DIPR								4
+#define SR_DATA_LEN_SX_DPORT							2
+#define SR_DATA_LEN_SX_MSSR								2
+#define SR_DATA_LEN_SX_TOS								1
+#define SR_DATA_LEN_SX_TTL								1
+#define SR_DATA_LEN_SX_RXBUF_SIZE					1
+#define SR_DATA_LEN_SX_TX_FSR							2
+#define SR_DATA_LEN_SX_TX_RD							2
+#define SR_DATA_LEN_SX_TX_WR							2
+#define SR_DATA_LEN_SX_RX_RSR							2
+#define SR_DATA_LEN_SX_RX_RD							2
+#define SR_DATA_LEN_SX_RX_WR							2
+#define SR_DATA_LEN_SX_IMR								1
+#define SR_DATA_LEN_SX_FRAG								2
+#define SR_DATA_LEN_SX_KPALVTR						1
+
 typedef enum{	//Block Select Bits
 	BSB_Common 				= 0x00,
 	BSB_0_Register		= 0x01,
@@ -48,7 +93,7 @@ typedef enum{	//Read/Write Access Mode Bit
 }RWB;
 typedef enum{	//Common Register Block
 	// Mode
-	CRB_MR					= 0x0000,
+	CRB_MR					= 0x0000,	
 	// Gateway Address
 	CRB_GAR0				= 0x0001,
 	CRB_GAR1				= 0x0002,
