@@ -56,7 +56,7 @@ HAL_StatusTypeDef W5500_WriteReg								(W5500_Handler* hW5 ,const W5500_RegOp *
 HAL_StatusTypeDef W5500_ReadReg									(W5500_Handler* hW5 ,const W5500_RegOp *op);
 void 							W5500_HardReset								(W5500_Handler *hW5);
 HAL_StatusTypeDef W5500_SoftReset								(W5500_Handler* hW5);
-uint8_t 					W5500_Version									(W5500_Handler* hW5);
+HAL_StatusTypeDef W5500_Version									(W5500_Handler* hW5);
 HAL_StatusTypeDef W5500_WriteGAR								(W5500_Handler *hW5 ,const uint8_t* gar);
 HAL_StatusTypeDef W5500_WriteSUBR								(W5500_Handler *hW5 ,const uint8_t* subr);
 HAL_StatusTypeDef W5500_WriteSHAR								(W5500_Handler *hW5 ,const uint8_t* shar);

@@ -61,18 +61,17 @@ HAL_StatusTypeDef W5500_SoftReset								(W5500_Handler* hW5){
 	HAL_Delay(2);  // کمی صبر کنیم
 	return HAL_OK;
 }
-uint8_t W5500_Version														(W5500_Handler* hW5){
+HAL_StatusTypeDef W5500_Version									(W5500_Handler* hW5){
 	uint8_t ver = 0;
 	W5500_RegOp op;
 	op.addr  = CRB_VERSIONR;
 	op.block = BSB_Common;
 	op.data  = &ver;
 	op.len   = CR_DATA_LEN_VERSIONR;
-
-	if (W5500_ReadReg(hW5, &op) == HAL_OK){
-		return op.data[0];
+	if (W5500_ReadReg(hW5, &op) == W5500_VERSION){
+		return HAL_OK;
 	}
-	return 0;
+	return HAL_ERROR;
 }
 static HAL_StatusTypeDef W5500_WriteCommonRegBlock(W5500_Handler* hW5 ,uint16_t addr ,const uint8_t* data ,uint16_t len){
 	W5500_RegOp op;
@@ -131,19 +130,38 @@ static HAL_StatusTypeDef W5500_ReadCommonRegBlock(W5500_Handler *hW5 ,uint16_t a
 	return W5500_ReadReg(hW5, &op);
 }
 HAL_StatusTypeDef W5500_WriteRTR								(W5500_Handler* hW5 ,uint16_t rtr){
-	
+	if (hW5 == NULL) {
+		return HAL_ERROR;
+	}
+	uint8_t buf[2];
+	buf[0] = (uint8_t)(rtr >> 8);    // High byte
+	buf[1] = (uint8_t)(rtr & 0xFF);  // Low byte
+	return W5500_WriteCommonRegBlock(hW5 ,CRB_RTR0 ,buf ,2 /* یا CR_DATA_LEN_RTR اگر داری */);
 }
 HAL_StatusTypeDef W5500_WriteRCR								(W5500_Handler* hW5 ,uint8_t  rcr){
-	
+	if (hW5 == NULL) {
+		return HAL_ERROR;
+	}
+	return W5500_WriteCommonRegBlock(hW5 ,CRB_RCR ,&rcr ,1 /* یا CR_DATA_LEN_RCR */);
 }
 HAL_StatusTypeDef W5500_ClearIR									(W5500_Handler* hW5){
-	
+	if (hW5 == NULL) {
+		return HAL_ERROR;
+	}
+	uint8_t val = 0xFF;   // نوشتن 1 روی هر بیت، آن فلگ را پاک می‌کند
+	return W5500_WriteCommonRegBlock(hW5 ,CRB_IR ,&val ,1 /* یا CR_DATA_LEN_IR */);
 }
 HAL_StatusTypeDef W5500_WriteIMR								(W5500_Handler* hW5 ,uint8_t imr){
-	
+	if (hW5 == NULL) {
+		return HAL_ERROR;
+	}
+	return W5500_WriteCommonRegBlock(hW5 ,CRB_IMR ,&imr ,1 /* یا CR_DATA_LEN_IMR */);
 }
 HAL_StatusTypeDef W5500_WriteSIMR								(W5500_Handler* hW5 ,uint8_t simr){
-	
+	if (hW5 == NULL) {
+		return HAL_ERROR;
+	}
+	return W5500_WriteCommonRegBlock(hW5 ,CRB_SIMR ,&simr ,1 /* یا CR_DATA_LEN_SIMR */);
 }
 HAL_StatusTypeDef W5500_ReadPHYCFGR							(W5500_Handler* hW5 ,uint8_t* phycfgr){
 	if (hW5 == NULL || phycfgr == NULL) {
@@ -189,17 +207,50 @@ bool 							W5500_ValidateNetConfig				(const W5500_NetConfig* cfg){
 	
 }
 HAL_StatusTypeDef W5500_InitStage1							(W5500_Handler* hW5 ,const W5500_NetConfig* cfg){
-	//handle init
-	//W5500_HardReset
-	//W5500_SoftReset
-	//read W5500_Version
-	//check W5500_Version
-	//set config
-	//write config
-	//set retrys
-	//set interuppt mask
-	//set phy
-	//write phy 
-	//check link up with time out
-	//
+	if (hW5 == NULL || cfg == NULL) {
+		return HAL_ERROR;
+	}
+	HAL_StatusTypeDef status;
+	W5500_Handle_init(hW5);
+	W5500_HardReset(hW5);
+	// 4) تنظیم IP / Gateway / Subnet / MAC
+    status = W5500_NetConfigure(hW5, cfg);
+    if (status != HAL_OK) {
+        return status;
+    }
+
+    // 5) تنظیم Retry ها (مقادیر پیشنهادی، اگر خواستی ماکرو تعریف کن)
+    status = W5500_WriteRTR(hW5, 2000);   // مقدار دیتاشیت، واحد داخلی
+    if (status != HAL_OK) {
+        return status;
+    }
+
+    status = W5500_WriteRCR(hW5, 8);      // 8 بار تلاش مجدد
+    if (status != HAL_OK) {
+        return status;
+    }
+
+    // 6) تنظیم interruptها در حد پایه
+    status = W5500_ClearIR(hW5);          // پاک کردن فلگ‌های قدیمی
+    if (status != HAL_OK) {
+        return status;
+    }
+
+    status = W5500_WriteIMR(hW5, 0x00);   // فعلاً همه را mask می‌کنیم (بدون IRQ)
+    if (status != HAL_OK) {
+        return status;
+    }
+
+    status = W5500_WriteSIMR(hW5, 0x00);  // سوکت‌ها هم فعلاً IRQ ندارند
+    if (status != HAL_OK) {
+        return status;
+    }
+
+    // 7) صبر برای بالا آمدن لینک فیزیکی
+    status = W5500_WaitForLink(hW5, 5000); // تا 5 ثانیه صبر کن
+    if (status != HAL_OK) {
+        // اگر اینجا fail شد یعنی کابل یا سوییچ مشکلی دارد
+        return status;
+    }
+	return HAL_OK;
 }
