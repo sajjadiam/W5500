@@ -21,12 +21,17 @@
 
 
 //net config struct and init start
+typedef enum{
+	W5500_IpMode_Static = 0,
+	W5500_IpMode_DHCP   = 1,
+}W5500_IpMode;
 typedef struct { // اين استراکچر براي تنظيمات شبکه هستش مثل مک و آي پي و گيت وي و ساب نت و مشخص کردن پورت ارتباطي
 	uint8_t 						mac[6];      	// SHAR
 	uint8_t 						ip[4];       	// SIPR
 	uint8_t 						gateway[4];  	// GAR
 	uint8_t 						subnet[4];   	// SUBR
 	uint16_t 						src_port;   	// پورت پیش‌فرض مثلاً 8006 (برای socket 0 بعداً)
+	W5500_IpMode				ip_mode;
 }W5500_NetConfig;
 
 typedef struct { // تنظيمات پورت وپين ها
@@ -91,5 +96,13 @@ static inline void W5500_Select(W5500_Handler* hW5){
 //W5500_Unselect
 static inline void W5500_Unselect(W5500_Handler* hW5){
 	HAL_GPIO_WritePin(hW5->Gpio.cs_port, hW5->Gpio.cs_pin, GPIO_PIN_SET);
+}
+//
+static inline BSB W5500_SockRegBlock(uint8_t sn){
+	return (BSB)((uint8_t)BSB_0_Register + (sn * 4));
+}
+// محاسبه Block برای TX Buffer سوکت n
+static inline BSB W5500_SockTxBlock(uint8_t sn){
+	return (BSB)((uint8_t)BSB_0_TX_Buffer + (sn * 4));
 }
 #endif // W5500_H

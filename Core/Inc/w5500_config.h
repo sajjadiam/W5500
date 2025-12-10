@@ -202,6 +202,8 @@ typedef enum{	//Socket Register Block
 	// Reserved						0x0017~0x001D
 	// Socket n Receive Buffer Size
 	SRB_Sn_RXBUF_SIZE		= 0x001E,
+	//Socket n Transmit Buffer Size
+	SRB_Sn_TXBUF_SIZE		= 0x001F,
 	// Socket n TX Free Size
 	SRB_Sn_TX_FSR0			= 0x0020,
 	SRB_Sn_TX_FSR1			= 0x0021,

@@ -85,15 +85,13 @@ int main(void)
   /* USER CODE BEGIN 1 */
 	W5500_Handler	hw5;
 	W5500_NetConfig net_cfg = {
-		.mac     = {0x00, 0x08, 0xDC, 0x01, 0x02, 0x03},
-    .ip      = {192, 168, 30, 79},
-    .gateway = {192, 168, 30, 100},
-    .subnet  = {255, 255, 255, 0},
-    .src_port = 8006, // فعلاً استفاده نمی‌کنیم
+		.mac     	= {0x02, 0x00, 0x00, 0x00, 0x00, 0x01},// مک تست، یکتا
+    .ip      	= {192 , 168 , 30  , 78 },
+    .gateway 	= {192 , 168 , 30	 , 100},
+    .subnet  	= {255 , 255 , 255 , 0	},
+    .src_port = 8006 , // فعلاً استفاده نمی‌کنیم
+		.ip_mode  = W5500_IpMode_Static,   // مهم: الان حالت تست
 	};
-	uint8_t x = 0;
-	uint8_t y = 0;
-	uint8_t z = 0;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -120,25 +118,12 @@ int main(void)
   MX_TIM3_Init();
   MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
-	W5500_Handle_init	(&hw5);
-	W5500_HardReset(&hw5);
-	W5500_SoftReset(&hw5);
-	uint8_t test = W5500_Version(&hw5);
-	if (W5500_NetConfigure(&hw5, &net_cfg) != HAL_OK) {
-    // اینجا یک LED error یا breakpoint بگذار
-		z = 1;
+	HAL_StatusTypeDef st = HAL_BUSY;
+	while(st != HAL_OK){
+		// اینجا یه LED روشن کن یا breakpoint بگذار
+		st = W5500_InitStage1(&hw5, &net_cfg);
 	}
-	// حالا صبر کن لینک بالا بیاد (مثلاً تا 5 ثانیه):
-	if (W5500_WaitForLink(&hw5, 10000) != HAL_OK) {
-    // اینجا لینک بالا نیومده -> کابل قطع یا سوییچ خاموش
-    // می‌تونی LED قرمز کنی یا خطا لاگ بگیری
-		y = 1;
-	} 
-	else {
-		// اینجا لینک up هست، می‌تونیم بریم سراغ مرحله‌ی بعد (socket ها)
-		x = 1;
-		
-	}
+
 	
 	HAL_ADC_Start_DMA(&hadc1,(uint32_t*)dma_buff,100);
 	ALCD_init(16, 2);
@@ -166,6 +151,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+		
   }
   /* USER CODE END 3 */
 }

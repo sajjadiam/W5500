@@ -213,44 +213,40 @@ HAL_StatusTypeDef W5500_InitStage1							(W5500_Handler* hW5 ,const W5500_NetCon
 	HAL_StatusTypeDef status;
 	W5500_Handle_init(hW5);
 	W5500_HardReset(hW5);
+	W5500_SoftReset(hW5);
+	W5500_Version(hW5);
 	// 4) تنظیم IP / Gateway / Subnet / MAC
-    status = W5500_NetConfigure(hW5, cfg);
-    if (status != HAL_OK) {
-        return status;
-    }
-
-    // 5) تنظیم Retry ها (مقادیر پیشنهادی، اگر خواستی ماکرو تعریف کن)
-    status = W5500_WriteRTR(hW5, 2000);   // مقدار دیتاشیت، واحد داخلی
-    if (status != HAL_OK) {
-        return status;
-    }
-
-    status = W5500_WriteRCR(hW5, 8);      // 8 بار تلاش مجدد
-    if (status != HAL_OK) {
-        return status;
-    }
-
-    // 6) تنظیم interruptها در حد پایه
-    status = W5500_ClearIR(hW5);          // پاک کردن فلگ‌های قدیمی
-    if (status != HAL_OK) {
-        return status;
-    }
-
-    status = W5500_WriteIMR(hW5, 0x00);   // فعلاً همه را mask می‌کنیم (بدون IRQ)
-    if (status != HAL_OK) {
-        return status;
-    }
-
-    status = W5500_WriteSIMR(hW5, 0x00);  // سوکت‌ها هم فعلاً IRQ ندارند
-    if (status != HAL_OK) {
-        return status;
-    }
-
-    // 7) صبر برای بالا آمدن لینک فیزیکی
-    status = W5500_WaitForLink(hW5, 5000); // تا 5 ثانیه صبر کن
-    if (status != HAL_OK) {
-        // اگر اینجا fail شد یعنی کابل یا سوییچ مشکلی دارد
-        return status;
-    }
+	status = W5500_NetConfigure(hW5, cfg);
+	if (status != HAL_OK) {
+		return status;
+	}
+	// 5) تنظیم Retry ها (مقادیر پیشنهادی، اگر خواستی ماکرو تعریف کن)
+	status = W5500_WriteRTR(hW5, 2000);   // مقدار دیتاشیت، واحد داخلی
+	if (status != HAL_OK) {
+		return status;
+	}
+	status = W5500_WriteRCR(hW5, 8);      // 8 بار تلاش مجدد
+	if (status != HAL_OK) {
+		return status;
+	}
+	// 6) تنظیم interruptها در حد پایه
+	status = W5500_ClearIR(hW5);          // پاک کردن فلگ‌های قدیمی
+	if (status != HAL_OK) {
+		return status;
+	}
+	status = W5500_WriteIMR(hW5, 0x00);   // فعلاً همه را mask می‌کنیم (بدون IRQ)
+	if (status != HAL_OK) {
+		return status;
+	}
+	status = W5500_WriteSIMR(hW5, 0x00);  // سوکت‌ها هم فعلاً IRQ ندارند
+	if (status != HAL_OK) {
+		return status;
+	}
+	// 7) صبر برای بالا آمدن لینک فیزیکی
+	status = W5500_WaitForLink(hW5, 5000); // تا 5 ثانیه صبر کن
+	if (status != HAL_OK) {
+		// اگر اینجا fail شد یعنی کابل یا سوییچ مشکلی دارد
+		return status;
+	}
 	return HAL_OK;
 }
