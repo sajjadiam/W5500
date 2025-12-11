@@ -17,9 +17,11 @@
 #define REG_BUF_SIZE(len)	(uint16_t)(W5_HDR_SIZE + (len))
 #define W5_MAX_REG_DATA   8 
 #define W5_FRAME_SIZE     (W5_HDR_SIZE + W5_MAX_REG_DATA)
-//function pointer typedefs
 
-
+//-----------------------------------------
+typedef enum{
+	W5500_Error_IDLE	= 0,
+}W5500_Error;
 //net config struct and init start
 typedef enum{
 	W5500_IpMode_Static = 0,
@@ -55,9 +57,19 @@ typedef struct { // بلاک هندلر اصلي
 	W5500_NetConfig		net;
 	W5500_GpioConfig 	Gpio;
 }W5500_Handler;
+// non blocking reading
+typedef W5500_Error (*W5500_NB_Read_func)(W5500_Handler* hW5 ,const W5500_RegOp *op);
+typedef enum{
+	W5500_NB_Read_IDLE = 0,
+	W5500_NB_Read_CMD,
+	W5500_NB_Read_RCV,
+	W5500_NB_Read_DONE,
+	W5500_NB_Read_END,
+}W5500_NB_Read;
 //----------------------------------------------
 void 							W5500_Handle_init							(W5500_Handler *hW5);
 HAL_StatusTypeDef W5500_WriteReg								(W5500_Handler* hW5 ,const W5500_RegOp *op);
+bool							W5500_ReadCommand							(W5500_Handler* hW5 ,const W5500_RegOp* op);
 HAL_StatusTypeDef W5500_ReadReg									(W5500_Handler* hW5 ,const W5500_RegOp *op);
 void 							W5500_HardReset								(W5500_Handler *hW5);
 HAL_StatusTypeDef W5500_SoftReset								(W5500_Handler* hW5);
@@ -80,6 +92,11 @@ void 							W5500_SetNetConfigInHandler		(W5500_Handler *hW5 ,const W5500_NetCon
 void 							W5500_GetNetConfigFromHandler	(W5500_Handler *hW5 ,W5500_NetConfig *cfg_out);
 bool 							W5500_ValidateNetConfig				(const W5500_NetConfig *cfg);
 HAL_StatusTypeDef W5500_InitStage1							(W5500_Handler *hW5 ,const W5500_NetConfig *cfg);
+//non block reading func
+W5500_Error 			W5500_NB_ReadIdle							(W5500_Handler* hW5 ,const W5500_RegOp *op);
+W5500_Error 			W5500_NB_ReadCmd							(W5500_Handler* hW5 ,const W5500_RegOp *op);
+W5500_Error 			W5500_NB_ReadRcv							(W5500_Handler* hW5 ,const W5500_RegOp *op);
+W5500_Error 			W5500_NB_ReadDone							(W5500_Handler* hW5 ,const W5500_RegOp *op);
 // inline function
 //ControlByte write
 static inline uint8_t W5500_ControlByte(BSB bsb ,OM om ,RWB rwb){

@@ -1,5 +1,13 @@
 #include "w5500.h"
 #include "spi.h"
+
+volatile W5500_NB_Read readHandler= W5500_NB_Read_IDLE;
+W5500_NB_Read_func hw5Read[W5500_NB_Read_END] = {
+	[W5500_NB_Read_IDLE]	= W5500_NB_ReadIdle,
+	[W5500_NB_Read_CMD ]  = W5500_NB_ReadCmd,
+	[W5500_NB_Read_RCV ]  = W5500_NB_ReadRcv,
+	[W5500_NB_Read_DONE]  = W5500_NB_ReadDone,
+};
 void 							W5500_Handle_init							(W5500_Handler* hW5){
 	hW5->hspi     			= W5500_UNIT_SPI;        // یا هر SPI دیگه
 	hW5->Gpio.cs_port  	= CS_PORT;
@@ -31,6 +39,7 @@ HAL_StatusTypeDef W5500_WriteReg								(W5500_Handler* hW5 ,const W5500_RegOp* 
 	W5500_Unselect(hW5);	
 	return st;	
 }	
+
 HAL_StatusTypeDef W5500_ReadReg									(W5500_Handler* hW5 ,const W5500_RegOp* op){
 	if (op->len == 0 || op->len > W5_MAX_REG_DATA){
 		return HAL_ERROR;	
@@ -249,4 +258,27 @@ HAL_StatusTypeDef W5500_InitStage1							(W5500_Handler* hW5 ,const W5500_NetCon
 		return status;
 	}
 	return HAL_OK;
+}
+// non blocking reading
+
+W5500_Error 			W5500_NB_ReadIdle							(W5500_Handler* hW5 ,const W5500_RegOp *op){
+	return 0;
+}
+W5500_Error 			W5500_NB_ReadCmd							(W5500_Handler* hW5 ,const W5500_RegOp *op){
+	uint8_t hdr[W5_HDR_SIZE];
+	hdr[0] = (uint8_t)(op->addr >> 8);
+	hdr[1] = (uint8_t)(op->addr & 0xFF);
+	hdr[2] = W5500_ControlByte(op->block,OM_VDM,RW_READ);
+	HAL_StatusTypeDef st = HAL_SPI_Transmit_IT(hW5->hspi,hdr,sizeof(hdr));
+	if(st == HAL_OK){
+		readHandler = W5500_NB_Read_CMD;
+		return W5500_Error_IDLE;
+	}
+	return W5500_Error_IDLE;
+}
+W5500_Error 			W5500_NB_ReadRcv							(W5500_Handler* hW5 ,const W5500_RegOp *op){
+	return 0;
+}
+W5500_Error 			W5500_NB_ReadDone							(W5500_Handler* hW5 ,const W5500_RegOp *op){
+	return 0;
 }
