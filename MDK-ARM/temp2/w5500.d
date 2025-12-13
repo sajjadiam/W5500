@@ -30,4 +30,5 @@ temp2/w5500.o: ..\Core\Src\w5500.c ..\Core\Inc\w5500.h \
   ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal_spi.h \
   ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal_tim.h \
   ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal_tim_ex.h \
-  C:\Keil_v5\ARM\ARMCLANG\include\stdbool.h ..\Core\Inc\spi.h
+  C:\Keil_v5\ARM\ARMCLANG\include\stdbool.h ..\Core\Inc\spi.h \
+  C:\Keil_v5\ARM\ARMCLANG\include\string.h

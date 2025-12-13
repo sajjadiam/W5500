@@ -1,13 +1,11 @@
 #include "w5500.h"
 #include "spi.h"
+#include "string.h"
+uint8_t spi_tx_buffer[MAX_BUF_SIZE];
+uint8_t spi_rx_buffer[MAX_BUF_SIZE];
+volatile w5500_State_t system_state = W5500_IDLE;
 
-volatile W5500_NB_Read readHandler= W5500_NB_Read_IDLE;
-W5500_NB_Read_func hw5Read[W5500_NB_Read_END] = {
-	[W5500_NB_Read_IDLE]	= W5500_NB_ReadIdle,
-	[W5500_NB_Read_CMD ]  = W5500_NB_ReadCmd,
-	[W5500_NB_Read_RCV ]  = W5500_NB_ReadRcv,
-	[W5500_NB_Read_DONE]  = W5500_NB_ReadDone,
-};
+
 void 							W5500_Handle_init							(W5500_Handler* hW5){
 	hW5->hspi     			= W5500_UNIT_SPI;        // یا هر SPI دیگه
 	hW5->Gpio.cs_port  	= CS_PORT;
@@ -32,14 +30,13 @@ HAL_StatusTypeDef W5500_WriteReg								(W5500_Handler* hW5 ,const W5500_RegOp* 
 	tx[1] = (uint8_t)(op->addr & 0xFF);
 	tx[2] = W5500_ControlByte(op->block,OM_VDM,RW_WRITE);
 	for (uint16_t i = 0; i < op->len; i++){
-		tx[3 + i] = op->data[i];	
+		tx[3 + i] = op->tx[i];	
 	}	
 	W5500_Select(hW5);	
 	HAL_StatusTypeDef st = HAL_SPI_Transmit(hW5->hspi, tx,W5_HDR_SIZE + op->len, 1000);
 	W5500_Unselect(hW5);	
 	return st;	
 }	
-
 HAL_StatusTypeDef W5500_ReadReg									(W5500_Handler* hW5 ,const W5500_RegOp* op){
 	if (op->len == 0 || op->len > W5_MAX_REG_DATA){
 		return HAL_ERROR;	
@@ -259,26 +256,43 @@ HAL_StatusTypeDef W5500_InitStage1							(W5500_Handler* hW5 ,const W5500_NetCon
 	}
 	return HAL_OK;
 }
-// non blocking reading
-
-W5500_Error 			W5500_NB_ReadIdle							(W5500_Handler* hW5 ,const W5500_RegOp *op){
-	return 0;
-}
-W5500_Error 			W5500_NB_ReadCmd							(W5500_Handler* hW5 ,const W5500_RegOp *op){
-	uint8_t hdr[W5_HDR_SIZE];
-	hdr[0] = (uint8_t)(op->addr >> 8);
-	hdr[1] = (uint8_t)(op->addr & 0xFF);
-	hdr[2] = W5500_ControlByte(op->block,OM_VDM,RW_READ);
-	HAL_StatusTypeDef st = HAL_SPI_Transmit_IT(hW5->hspi,hdr,sizeof(hdr));
-	if(st == HAL_OK){
-		readHandler = W5500_NB_Read_CMD;
-		return W5500_Error_IDLE;
+//----------------------
+int W5500_Read_NonBlocking(W5500_Handler* hW5 ,const W5500_RegOp* op){
+	if (system_state != W5500_IDLE) {
+			return -1; // Busy Error
 	}
-	return W5500_Error_IDLE;
+	// 1. آماده‌سازی هدر (طبق دیتاشیت صفحه 14 و 15)
+	spi_tx_buffer[0] = (op->addr >> 8) & 0xFF; // Address High
+	spi_tx_buffer[1] = op->addr  & 0xFF;        // Address Low
+	spi_tx_buffer[2] = W5500_ControlByte(op->block,OM_VDM,RW_READ);            // Control Byte (RWB=0 for Read)
+	// پر کردن بقیه بافر با Dummy برای کلاک زدن دیتا
+	memset(&spi_tx_buffer[3], 0x00, op->len);
+	// 2. شروع تراکنش
+	W5500_Select(hW5); // فعال کردن چیپ
+	system_state = W5500_TX_RX_BUSY;
+	// فعال‌سازی DMA برای ارسال و دریافت همزمان (طول کل = 3 + len)
+	HAL_SPI_TransmitReceive_DMA(hW5->hspi, spi_tx_buffer, spi_rx_buffer, 3 + op->len);
+	return 0; // Success start
 }
-W5500_Error 			W5500_NB_ReadRcv							(W5500_Handler* hW5 ,const W5500_RegOp *op){
-	return 0;
+void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
+	W5500_Handler hW5;
+	hW5.Gpio.cs_port = SPI2_CS_GPIO_Port;
+	hW5.Gpio.cs_pin	 = SPI2_CS_Pin;
+	W5500_Unselect(&hW5); // غیرفعال کردن چیپ (طبق صفحه 21 دیتاشیت)
+	system_state = W5500_DATA_READY;
 }
-W5500_Error 			W5500_NB_ReadDone							(W5500_Handler* hW5 ,const W5500_RegOp *op){
-	return 0;
+void W5500_Poll(void) {
+	if (system_state == W5500_DATA_READY) {
+		// پردازش دیتا
+		// دیتای معتبر از spi_rx_buffer[3] شروع می‌شود
+		Process_Network_Data(&spi_rx_buffer[3]);
+		system_state = W5500_IDLE; // آزاد کردن درایور
+	}
+}
+void Process_Network_Data(uint8_t* data){
+	uint8_t *valid_data = &data[W5_HDR_SIZE]; 
+	// حالا راحت استفاده کنید (انگار بافر از صفر شروع شده)
+	if (valid_data[0] == 0x17) { 
+			// این در واقع همان spi_rx_buffer[3] است
+	}
 }
