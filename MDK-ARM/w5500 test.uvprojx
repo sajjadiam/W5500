@@ -434,6 +434,26 @@
               <FileType>1</FileType>
               <FilePath>../Core/Src/stm32f1xx_hal_msp.c</FilePath>
             </File>
+            <File>
+              <FileName>factory_proto.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\factory_proto.c</FilePath>
+            </File>
+            <File>
+              <FileName>net_dhcp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\net_dhcp.c</FilePath>
+            </File>
+            <File>
+              <FileName>W5500.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\W5500.c</FilePath>
+            </File>
+            <File>
+              <FileName>w5500_core.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\w5500_core.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
