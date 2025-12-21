@@ -373,10 +373,10 @@ typedef enum{ //W5500_Sokects_protoc
 			if((SX_M_P0 | SX_M_P1 | SX_M_P2 | SX_M_P3) == 1) => TCP
 			if((SX_M_P0 | SX_M_P1 | SX_M_P2 | SX_M_P3) == 2) => UDP
 			if((SX_M_P0 | SX_M_P1 | SX_M_P2 | SX_M_P3) == 4) => MACRAW */
-	/*	* MACRAW mode should be only used in Socket 0. */
+	/*	MACRAW mode should be only used in Socket 0. */
 	W5500_SN_MR_P_Closed			= 0x00,
-	W5500_SN_MR_P_TCP				= 0x01,
-	W5500_SN_MR_P_UDP				= 0x02,
+	W5500_SN_MR_P_TCP					= 0x01,
+	W5500_SN_MR_P_UDP					= 0x02,
 	W5500_SN_MR_P_MACRAW			= 0x04,
 }w5500_sn_proto_t;
 typedef enum{	//Socket n Mode Register
