@@ -81,7 +81,7 @@
           </BeforeMake>
           <AfterMake>
             <RunUserProg1>0</RunUserProg1>
-            <RunUserProg2>0</RunUserProg2>
+            <RunUserProg2>1</RunUserProg2>
             <UserProg1Name></UserProg1Name>
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
@@ -395,6 +395,26 @@
           <GroupName>Application/User/Core</GroupName>
           <Files>
             <File>
+              <FileName>factory_proto.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\factory_proto.c</FilePath>
+            </File>
+            <File>
+              <FileName>net_dhcp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\net_dhcp.c</FilePath>
+            </File>
+            <File>
+              <FileName>W5500.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\W5500.c</FilePath>
+            </File>
+            <File>
+              <FileName>w5500_core.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\w5500_core.c</FilePath>
+            </File>
+            <File>
               <FileName>main.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Core/Src/main.c</FilePath>
@@ -433,26 +453,6 @@
               <FileName>stm32f1xx_hal_msp.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Core/Src/stm32f1xx_hal_msp.c</FilePath>
-            </File>
-            <File>
-              <FileName>factory_proto.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Core\Src\factory_proto.c</FilePath>
-            </File>
-            <File>
-              <FileName>net_dhcp.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Core\Src\net_dhcp.c</FilePath>
-            </File>
-            <File>
-              <FileName>W5500.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Core\Src\W5500.c</FilePath>
-            </File>
-            <File>
-              <FileName>w5500_core.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Core\Src\w5500_core.c</FilePath>
             </File>
           </Files>
         </Group>

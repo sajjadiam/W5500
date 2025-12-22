@@ -26,7 +26,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "W5500.h"
+#include "w5500_core.h"
+#include "string.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -67,9 +69,18 @@ void SystemClock_Config(void);
   */
 int main(void)
 {
-	
-  /* USER CODE BEGIN 1 */
 
+  /* USER CODE BEGIN 1 */
+	uint8_t mac[6] = {0x02,0x00,0x00,0x00,0x00,0x02};
+
+	uint8_t subnet[4] = {255,255,255,0};
+
+	uint8_t getway[4] = {192,168,30,100};
+
+	uint8_t ip[4] = {192,168,30,77};
+
+	uint8_t rx_buffer[128]; // بافر دریافت
+	
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -95,13 +106,49 @@ int main(void)
   MX_SPI2_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-
+	W5500_Init(mac,ip,subnet,getway);
+	if(W5500_SocketInit(0, 5000,W5500_SN_MR_P_TCP)) {
+		W5500_SocketListen(0);
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+		uint8_t status = W5500_ReadByte(W5500_SRB_Sn_SR, W5500_BSB_0_Register);
+		switch(status) {
+			case W5500_SN_SR_ESTABLISHED:{ // کلاینت وصل شده
+				// آیا دیتایی آمده؟
+				uint16_t len = W5500_Recv(0, rx_buffer, 128);
+				if(len > 0){
+					// پایان رشته را نال کنیم برای مقایسه
+					rx_buffer[len] = 0; 
+					if (strstr((char*)rx_buffer, "ON")){
+						HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+						char msg[] = "Command Received: LED ON\r\n";
+						W5500_Send(0, (uint8_t*)msg, strlen(msg));
+					}
+					else if (strstr((char*)rx_buffer, "OFF")){
+						HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+						char msg[] = "Command Received: LED OFF\r\n";
+						W5500_Send(0, (uint8_t*)msg, strlen(msg));
+					}
+				}
+				break;
+			}
+			case W5500_SN_SR_CLOSE_WAIT:{ // کلاینت قطع کرد
+				W5500_WriteByte(W5500_SRB_Sn_CR, W5500_BSB_0_Register, W5500_SN_CR_DISCON);
+				break;
+			}
+			case W5500_SN_SR_CLOSED:{// سوکت بسته شد، دوباره باز کن
+				W5500_SocketInit(0, 5000,W5500_SN_MR_P_TCP);
+				W5500_SocketListen(0);
+				break;
+			}
+		}
+        
+		HAL_Delay(10);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
