@@ -54,6 +54,13 @@
 #define W5500_PHYCFGR_OPMD_MASK       		(0x40u)   /* bit 6     */
 #define W5500_PHYCFGR_RST_MASK        		(0x80u)   /* bit 7     */
 //-------------------------
+#define W5_KB_0   0
+#define W5_KB_1   1
+#define W5_KB_2   2
+#define W5_KB_4   4
+#define W5_KB_8   8
+#define W5_KB_16  16
+//-------------------------
 typedef enum{	//Block Select Bits
 	W5500_BSB_Common 				= 0x00,
 	W5500_BSB_0_Register		= 0x01,
@@ -609,14 +616,7 @@ typedef enum{	// Socket n Status Register
 			(Sn_IR[TIMEOUT] = ‘1’). */
 	W5500_SN_SR_LAST_ACK		= 0x1D,
 }w5500_sn_sr_status_t; // Socket n Status Register
-typedef enum{
-	W5500_SOCK_BUF_0KB  = 0,
-	W5500_SOCK_BUF_1KB  = 1,
-	W5500_SOCK_BUF_2KB  = 2,
-	W5500_SOCK_BUF_4KB  = 4,
-	W5500_SOCK_BUF_8KB  = 8,
-    W5500_SOCK_BUF_16KB = 16,
-} w5500_sock_bufsize_t;
+
 /*control bit macro*/
 #define W5500_CTRL(bsb, rwb, om)   	(((uint8_t)(bsb) << 3) | ((uint8_t)(rwb) << 2) | ((uint8_t)(om) & 0x03))
 /*phy byte macro */

@@ -3,9 +3,9 @@
 <title>Static Call Graph - [w5500 test\w5500 test.axf]</title></head>
 <body><HR>
 <H1>Static Call Graph for image w5500 test\w5500 test.axf</H1><HR>
-<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 6210000: Last Updated: Mon Dec 22 14:52:35 2025
+<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 6210000: Last Updated: Tue Dec 23 17:22:38 2025
 <BR><P>
-<H3>Maximum Stack Usage =        392 bytes + Unknown(Functions without stacksize, Cycles, Untraceable Function Pointers)</H3><H3>
+<H3>Maximum Stack Usage =        400 bytes + Unknown(Functions without stacksize, Cycles, Untraceable Function Pointers)</H3><H3>
 Call chain for Maximum Stack Depth:</H3>
 __rt_entry_main &rArr; main &rArr; W5500_Recv &rArr; W5500_ReadBuf &rArr; HAL_SPI_Receive &rArr; HAL_SPI_TransmitReceive &rArr; SPI_WaitFlagStateUntilTimeout
 <P>
@@ -204,7 +204,7 @@ Global Symbols
 <P><STRONG><a name="[a6]"></a>__rt_entry_postsh_1</STRONG> (Thumb, 0 bytes, Stack size unknown bytes, __rtentry2.o(.ARM.Collect$$rtentry$$00000009))
 
 <P><STRONG><a name="[3f]"></a>__rt_entry_main</STRONG> (Thumb, 0 bytes, Stack size unknown bytes, __rtentry2.o(.ARM.Collect$$rtentry$$0000000D))
-<BR><BR>[Stack]<UL><LI>Max Depth = 392 + Unknown Stack Size
+<BR><BR>[Stack]<UL><LI>Max Depth = 400 + Unknown Stack Size
 <LI>Call Chain = __rt_entry_main &rArr; main &rArr; W5500_Recv &rArr; W5500_ReadBuf &rArr; HAL_SPI_Receive &rArr; HAL_SPI_TransmitReceive &rArr; SPI_WaitFlagStateUntilTimeout
 </UL>
 <BR>[Calls]<UL><LI><a href="#[40]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
@@ -888,8 +888,8 @@ Global Symbols
 <LI><a href="#[80]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;W5500_SocketInit
 </UL>
 
-<P><STRONG><a name="[7d]"></a>W5500_Recv</STRONG> (Thumb, 136 bytes, Stack size 24 bytes, w5500_core.o(.text.W5500_Recv))
-<BR><BR>[Stack]<UL><LI>Max Depth = 184<LI>Call Chain = W5500_Recv &rArr; W5500_ReadBuf &rArr; HAL_SPI_Receive &rArr; HAL_SPI_TransmitReceive &rArr; SPI_WaitFlagStateUntilTimeout
+<P><STRONG><a name="[7d]"></a>W5500_Recv</STRONG> (Thumb, 148 bytes, Stack size 32 bytes, w5500_core.o(.text.W5500_Recv))
+<BR><BR>[Stack]<UL><LI>Max Depth = 192<LI>Call Chain = W5500_Recv &rArr; W5500_ReadBuf &rArr; HAL_SPI_Receive &rArr; HAL_SPI_TransmitReceive &rArr; SPI_WaitFlagStateUntilTimeout
 </UL>
 <BR>[Calls]<UL><LI><a href="#[7b]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;W5500_ReadBuf
 <LI><a href="#[7c]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;W5500_ReadByte
@@ -898,8 +898,8 @@ Global Symbols
 <BR>[Called By]<UL><LI><a href="#[40]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
-<P><STRONG><a name="[7e]"></a>W5500_Send</STRONG> (Thumb, 160 bytes, Stack size 32 bytes, w5500_core.o(.text.W5500_Send))
-<BR><BR>[Stack]<UL><LI>Max Depth = 160<LI>Call Chain = W5500_Send &rArr; W5500_WriteBuf &rArr; HAL_SPI_TransmitReceive &rArr; SPI_WaitFlagStateUntilTimeout
+<P><STRONG><a name="[7e]"></a>W5500_Send</STRONG> (Thumb, 242 bytes, Stack size 40 bytes, w5500_core.o(.text.W5500_Send))
+<BR><BR>[Stack]<UL><LI>Max Depth = 168<LI>Call Chain = W5500_Send &rArr; W5500_WriteBuf &rArr; HAL_SPI_TransmitReceive &rArr; SPI_WaitFlagStateUntilTimeout
 </UL>
 <BR>[Calls]<UL><LI><a href="#[7f]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;W5500_WriteBuf
 <LI><a href="#[7c]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;W5500_ReadByte
@@ -960,7 +960,7 @@ Global Symbols
 </UL>
 
 <P><STRONG><a name="[40]"></a>main</STRONG> (Thumb, 352 bytes, Stack size 208 bytes, main.o(.text.main))
-<BR><BR>[Stack]<UL><LI>Max Depth = 392 + Unknown Stack Size
+<BR><BR>[Stack]<UL><LI>Max Depth = 400 + Unknown Stack Size
 <LI>Call Chain = main &rArr; W5500_Recv &rArr; W5500_ReadBuf &rArr; HAL_SPI_Receive &rArr; HAL_SPI_TransmitReceive &rArr; SPI_WaitFlagStateUntilTimeout
 </UL>
 <BR>[Calls]<UL><LI><a href="#[71]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;MX_TIM2_Init
