@@ -1,5 +1,8 @@
 #ifndef NET_DHCP_H
 #define NET_DHCP_H
+
+#define DHCP_BUF_SIZE		300
+
 void DHCP_Init(unsigned char socket_num); //(اختصاص یک سوکت خاص به DHCP)
 void DHCP_Run(void); //(باید در حلقه اصلی برنامه مدام صدا زده شود تا تایم‌اوت‌ها را چک کند)
 void DHCP_ParseMessage(void); //(تحلیل پکت دریافتی از سرور)
