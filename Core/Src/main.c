@@ -110,6 +110,7 @@ int main(void)
 	if(W5500_SocketInit(0, 5000,W5500_SN_MR_P_TCP)) {
 		W5500_SocketListen(0);
   }
+	uint32_t test = UID_BASE;
   /* USER CODE END 2 */
 
   /* Infinite loop */
