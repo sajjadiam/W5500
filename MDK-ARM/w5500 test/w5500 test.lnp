@@ -12,6 +12,7 @@
 "w5500 test\tim.o"
 "w5500 test\stm32f1xx_it.o"
 "w5500 test\stm32f1xx_hal_msp.o"
+"w5500 test\net_if.o"
 "w5500 test\stm32f1xx_hal_gpio_ex.o"
 "w5500 test\stm32f1xx_hal_adc.o"
 "w5500 test\stm32f1xx_hal_adc_ex.o"
