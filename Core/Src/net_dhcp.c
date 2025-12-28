@@ -59,7 +59,7 @@ static void init_dhcp_discover_buf(uint8_t* discover){
 	discover[DHCP_XID + 3] 						= dhcp_ctx.xid 				 & 0xFF; 	// lower byte of random number
 	
 	discover[DHCP_FLAGS]							= 0x80;													// Broadcast flag
-	discover[DHCP_FLAGS]							= 0x00;
+	discover[DHCP_FLAGS + 1]							= 0x00;
 	
 	memcpy(&discover[DHCP_CHADDR], mac, 6);
 	
@@ -97,13 +97,41 @@ void DHCP_DISCOVER(void){
 	// 1. build DHCP DISCOVER packet
 	init_dhcp_discover_buf(dhcp_buf);
 	// 2. send broadcast to 255.255.255.255:67
-	
+	uint8_t server_ip[4] = { 255 ,255 ,255 ,255};
+	W5500_Set_UDP_Destination(0,server_ip,67);
 	// 3. start timeout timer
 	dhcp_ctx.last_tick = HAL_GetTick();
 	// 4. go to WAIT_OFFER
 	dhcp_state = DHCP_STATE_WAIT_OFFER;
 }
+static uint8_t* get_dhcp_option(uint8_t* buf, uint16_t buf_len, uint8_t target_option){
+	// ۱. رفتن به شروع آپشن‌ها (بعد از Magic Cookie)
+	uint16_t curr = DHCP_OPTIONS;
+	// ۲. حرکت در بافر تا رسیدن به انتهای پکت یا پیدا کردن آپشن
+	while (curr < buf_len) {
+		uint8_t opt_code = buf[curr];
+		// اگر به کد ۲۵۵ رسیدیم، یعنی آپشن‌ها تمام شد
+		if (opt_code == 0xFF){
+			return NULL;
+		}
+		// اگر کد صفر بود (Padding)، فقط یک بایت جلو برو
+		if (opt_code == 0x00) {
+			curr++;
+		}
+		else{
+			uint8_t opt_len = buf[curr + 1];
+			// ۳. بررسی اینکه آیا این همان آپشن هدف ماست؟
+			if (opt_code == target_option) {
+				return &buf[curr + 2]; // آدرسِ بخش Value را برمی‌گردانیم
+			}
+			// ۴. پرش به آپشن بعدی
+			curr += (2 + opt_len);
+		}
+	}
+	return NULL; // اگر پیدا نشد
+}
 void DHCP_WAIT_OFFER(void){
+	
 	int len;
 	// 1. check timeout
 	if (HAL_GetTick() - dhcp_ctx.last_tick > 3000) {
@@ -111,7 +139,7 @@ void DHCP_WAIT_OFFER(void){
 		return;
 	}
 	// 2. check if packet received
-	//len = W5500_RecvUDP(0, dhcp_buf, DHCP_BUF_SIZE);
+	len = W5500_Recv_UDP(0, dhcp_buf, DHCP_BUF_SIZE);
 	if (len <= 0) {
 		return; // هنوز چیزی نیومده
 	}
@@ -139,43 +167,39 @@ void DHCP_WAIT_OFFER(void){
 		return;
 	}
 	// 8. parse options
-	uint16_t opt = DHCP_OPTIONS;
-	uint8_t msg_type = 0;
-	while (opt < len) {
-		uint8_t code = dhcp_buf[opt++];
-
-		if (code == 0) continue;        // padding
-		if (code == 255) break;         // end
-
-		uint8_t oplen = dhcp_buf[opt++];
-
-		if (code == 53 && oplen == 1) {
-			msg_type = dhcp_buf[opt];
-		}
-		else if (code == 54 && oplen == 4) {
-			memcpy(dhcp_ctx.server_ip, &dhcp_buf[opt], 4);
-		}
-
-		opt += oplen;
-	}
 	// - if message type == OFFER: (check option 53)
-	// 	- save YIADDR as offered_ip
-	//  - save Option 54 as server_ip
-	//	- save Option 1 as Subnet mask
-	//	- save Option 3 as Gateway
-	//	- save Option 6 as DNS
-	//  - go to REQUEST
-	// - if timeout -> retry DISCOVER
-	// 9. must be OFFER
-	if (msg_type != 2) {
+	uint8_t* opt_val = get_dhcp_option(dhcp_buf,DHCP_BUF_SIZE,53);
+	
+	if((opt_val == NULL) || (*opt_val != 0x02)){
 		return;
 	}
-
-	// 10. save YIADDR
-	memcpy(dhcp_ctx.offered_ip, &dhcp_buf[DHCP_YIADDR], 4);
+	// 	- save YIADDR as offered_ip.
+	memcpy(dhcp_ctx.offered_ip,&dhcp_buf[DHCP_YIADDR],4);
+	//  - save Option 54 as server_ip
+	opt_val = get_dhcp_option(dhcp_buf,DHCP_BUF_SIZE,54);
+	if(opt_val != NULL){
+		memcpy(dhcp_ctx.server_ip,opt_val,4);
+	}
+	//	- save Option 1 as Subnet mask
+	opt_val = get_dhcp_option(dhcp_buf,DHCP_BUF_SIZE,1);
+	if(opt_val != NULL){
+		memcpy(dhcp_ctx.subnet,opt_val,4);
+	}
+	//	- save Option 3 as Gateway
+	opt_val = get_dhcp_option(dhcp_buf,DHCP_BUF_SIZE,3);
+	if(opt_val != NULL){
+		memcpy(dhcp_ctx.gateway,opt_val,4);
+	}
+	//	- save Option 6 as DNS
+	
+	//  - go to REQUEST
+	// - if timeout -> retry DISCOVER
 
 	// 11. go to REQUEST
 	dhcp_state = DHCP_STATE_REQUEST;
+}
+static void init_dhcp_request_buf(uint8_t* buf){
+	
 }
 void DHCP_REQUEST(void){
 	// - build DHCP REQUEST
@@ -208,11 +232,3 @@ void DHCP_RETRY(void){
 
 
 
-static void dhcp_offer_check(uint8_t* offer){
-	if(offer[DHCP_OP] != 2){
-		return;
-	}
-	
-	const uint8_t* mac = netif_get_mac();
-	memcmp(&offer[DHCP_CHADDR],mac,6);
-}

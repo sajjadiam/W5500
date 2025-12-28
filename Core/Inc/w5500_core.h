@@ -19,6 +19,7 @@
 	#error "W5500 Error: Total Socket Memory exceeds 16KB! Please reduce buffer sizes."
 #endif
 
+#define UDP_HEAD_SIZE		8
 typedef enum{ // W5500 spi state
 	W5500_IDLE				= 0,
 	W5500_TX_RX_BUSY	= 1,
@@ -35,4 +36,7 @@ uint8_t W5500_SocketListen(uint8_t sn); // بردن سوکت به حالت Liste
 int8_t W5500_Send(uint8_t sn, uint8_t *buf, uint16_t len); 
 uint16_t W5500_Recv(uint8_t sn, uint8_t *buf, uint16_t max_len);
 
+uint8_t W5500_Set_UDP_Destination(uint8_t sn,uint8_t* ds_ip,uint16_t ds_port);
+int8_t W5500_Send_UDP(uint8_t sn, uint8_t *buf, uint16_t len); 
+uint16_t W5500_Recv_UDP(uint8_t sn, uint8_t *buf, uint16_t max_len);
 #endif // W5500_CORE_H

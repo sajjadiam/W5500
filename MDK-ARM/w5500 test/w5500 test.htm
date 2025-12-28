@@ -3,7 +3,7 @@
 <title>Static Call Graph - [w5500 test\w5500 test.axf]</title></head>
 <body><HR>
 <H1>Static Call Graph for image w5500 test\w5500 test.axf</H1><HR>
-<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 6190004: Last Updated: Sat Dec 27 06:40:07 2025
+<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 6190004: Last Updated: Sun Dec 28 18:13:44 2025
 <BR><P>
 <H3>Maximum Stack Usage =        400 bytes + Unknown(Functions without stacksize, Cycles, Untraceable Function Pointers)</H3><H3>
 Call chain for Maximum Stack Depth:</H3>
@@ -908,8 +908,8 @@ Global Symbols
 <BR>[Called By]<UL><LI><a href="#[40]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
-<P><STRONG><a name="[80]"></a>W5500_SocketInit</STRONG> (Thumb, 126 bytes, Stack size 16 bytes, w5500_core.o(.text.W5500_SocketInit))
-<BR><BR>[Stack]<UL><LI>Max Depth = 144<LI>Call Chain = W5500_SocketInit &rArr; W5500_WriteByte &rArr; HAL_SPI_TransmitReceive &rArr; SPI_WaitFlagStateUntilTimeout
+<P><STRONG><a name="[80]"></a>W5500_SocketInit</STRONG> (Thumb, 190 bytes, Stack size 32 bytes, w5500_core.o(.text.W5500_SocketInit))
+<BR><BR>[Stack]<UL><LI>Max Depth = 160<LI>Call Chain = W5500_SocketInit &rArr; W5500_WriteByte &rArr; HAL_SPI_TransmitReceive &rArr; SPI_WaitFlagStateUntilTimeout
 </UL>
 <BR>[Calls]<UL><LI><a href="#[7c]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;W5500_ReadByte
 <LI><a href="#[79]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;W5500_WriteByte

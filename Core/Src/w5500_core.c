@@ -98,7 +98,14 @@ uint8_t W5500_SocketInit(uint8_t sn, uint16_t port,w5500_sn_proto_t protocol /*,
 	W5500_WriteByte(W5500_SRB_Sn_CR,socket,W5500_SN_CR_OPEN);
 	uint8_t timeout = 0;
 	while(timeout < 200){
-		if(W5500_ReadByte(W5500_SRB_Sn_SR,socket) == W5500_SN_SR_INIT){
+		w5500_sn_sr_status_t status = W5500_ReadByte(W5500_SRB_Sn_SR,socket);
+		if(status == W5500_SN_SR_INIT && protocol == W5500_SN_MR_P_TCP){
+			return 1;
+		}
+		else if(status == W5500_SN_SR_UDP && protocol == W5500_SN_MR_P_UDP){
+			return 1;
+		}
+		else if(status == W5500_SN_SR_MACRAW && protocol == W5500_SN_MR_P_MACRAW){
 			return 1;
 		}
 		__NOP();
@@ -117,7 +124,25 @@ uint8_t W5500_SocketListen(uint8_t sn){
 	}
 	return 1;
 }
+static void W5500_ReadFromRingBuffer(uint8_t sn, uint16_t logical_addr, uint8_t *dest_buf, uint16_t len) {
+	const w5500_bsb_t socket_rx = BSB_Sn_RXbuf(sn);
+	const uint16_t SMASK = GetSocketMask(sn);
+	const uint16_t SSIZE = GetSocketSize(sn);
+	
+	uint16_t offset = logical_addr & SMASK;
 
+	if (offset + len > SSIZE) {
+		// حالت دو تکه (Wrap-around)
+		uint16_t size1 = SSIZE - offset;
+		uint16_t size2 = len - size1;
+		
+		W5500_ReadBuf(offset, socket_rx, dest_buf, size1);
+		W5500_ReadBuf(0, socket_rx, dest_buf + size1, size2);
+	} else {
+		// حالت یک تکه
+		W5500_ReadBuf(offset, socket_rx, dest_buf, len);
+	}
+}
 int8_t W5500_Send(uint8_t sn, uint8_t *buf, uint16_t len){
 	if(len == 0){
 		return 0;
@@ -186,7 +211,7 @@ int8_t W5500_Send(uint8_t sn, uint8_t *buf, uint16_t len){
 	
 	return 0; // موفقیت
 }
-uint16_t W5500_Recv(uint8_t sn, uint8_t *buf, uint16_t max_len) {
+uint16_t W5500_Recv(uint8_t sn, uint8_t *buf, uint16_t max_len){
 	if(sn > 7){
 		return 0; // خطا 
 	}  
@@ -236,4 +261,120 @@ uint16_t W5500_Recv(uint8_t sn, uint8_t *buf, uint16_t max_len) {
 	while(W5500_ReadByte(W5500_SRB_Sn_CR, socket_reg));
 	
 	return readLen; // مقدار دیتایی که خواندیم را برمی‌گردانیم
+}
+uint8_t W5500_Set_UDP_Destination(uint8_t sn,uint8_t* ds_ip,uint16_t ds_port){
+	if(sn > 7){
+		return 0; // خطا 
+	}
+	const w5500_bsb_t socket_reg = BSB_Sn_REG(sn);
+	
+	W5500_WriteReg(W5500_SRB_Sn_DIPR0,socket_reg ,ds_ip,4);
+	W5500_WriteByte(W5500_SRB_Sn_DPORT0,socket_reg,((ds_port >> 8) & 0xFF));
+	W5500_WriteByte(W5500_SRB_Sn_DPORT1,socket_reg,(ds_port & 0xFF));
+	
+	return 1;
+}
+int8_t W5500_SendUDP(uint8_t sn, uint8_t *buf, uint16_t len) {
+	if(len == 0){
+		return 0;
+	}
+	if(sn > 7){
+		return 0;
+	}
+	const w5500_bsb_t socket_reg = BSB_Sn_REG(sn);
+	const uint16_t SMASK = GetSocketMask(sn);
+  const uint16_t SSIZE = GetSocketSize(sn);
+	// ۲. محاسبه فضای خالی در بافر TX (FSR)
+	uint32_t startTick = HAL_GetTick(); 
+	uint16_t freeSize;
+	do{
+		// 1. خواندن فضای خالی
+		uint8_t fsr_h = W5500_ReadByte(W5500_SRB_Sn_TX_FSR0, socket_reg);
+		uint8_t fsr_l = W5500_ReadByte(W5500_SRB_Sn_TX_FSR1, socket_reg);
+		freeSize = (fsr_h << 8) | fsr_l;
+		// 2. چک کردن وضعیت سوکت (نکته طلایی صنعتی)
+		// اگر ارتباط قطع شده باشد، منتظر ماندن برای فضای خالی بی‌فایده است
+		if (W5500_ReadByte(W5500_SRB_Sn_SR, socket_reg) != W5500_SN_SR_UDP) {
+				return -1; // udp باز نشده است
+		}
+		// 3. چک کردن تایم‌اوت (مثلا 1000 میلی‌ثانیه)
+		if ((HAL_GetTick() - startTick) > 1000) {
+			return -2; // تایم‌اوت: شبکه شلوغ است یا بافر خالی نمی‌شود
+		}
+	} while (freeSize < len); //اين شرط احساس ميکنم شديدا بلاک کننده اس 
+	// 3. خواندن پوینتر فعلی نوشتن
+	uint8_t ptr_h = W5500_ReadByte(W5500_SRB_Sn_TX_WR0, socket_reg);
+	uint8_t ptr_l = W5500_ReadByte(W5500_SRB_Sn_TX_WR1, socket_reg);
+	uint16_t ptr = (ptr_h << 8) | ptr_l;
+	// 4. محاسبه آفست فیزیکی در بافر (محلی که باید بنویسیم)
+	uint16_t offset = ptr & SMASK; // برای بافر 2KB (پیش‌فرض)
+	// 5. بررسی نیاز به شکستن دیتا (Wrap Around Check)
+	if ( (offset + len) > SSIZE ) {
+		// حالت خاص: دیتا از انتهای بافر بیرون می‌زند
+		uint16_t size1 = SSIZE - offset; // مقدار دیتایی که تا ته بافر جا می‌شود
+		uint16_t size2 = len - size1;    // مقدار باقیمانده که باید برود اول بافر
+		
+		// تیکه اول: از آفست تا ته بافر
+		W5500_WriteBuf(offset, BSB_Sn_TXbuf(sn), buf, size1);
+		
+		// تیکه دوم: از اول بافر (آفست 0)
+		W5500_WriteBuf(0, BSB_Sn_TXbuf(sn), buf + size1, size2);
+			
+	} else {
+		// حالت عادی: دیتا یکجا جا می‌شود
+		W5500_WriteBuf(offset, BSB_Sn_TXbuf(sn), buf, len);
+	}
+	// 6. آپدیت پوینتر نوشتن (به اندازه کل len جلو می‌رود)
+	ptr += len;
+	W5500_WriteByte(W5500_SRB_Sn_TX_WR0, socket_reg, (ptr >> 8) & 0xFF);
+	W5500_WriteByte(W5500_SRB_Sn_TX_WR1, socket_reg, ptr & 0xFF);
+	// 7. فرمان ارسال
+  W5500_WriteByte(W5500_SRB_Sn_CR, socket_reg, W5500_SN_CR_SEND);
+	startTick = HAL_GetTick();
+	while (W5500_ReadByte(W5500_SRB_Sn_CR, socket_reg)) {
+		if ((HAL_GetTick() - startTick) > 100) break; // نباید زیاد طول بکشد
+	}
+	return 1;
+}
+uint16_t W5500_Recv_UDP(uint8_t sn, uint8_t *buf, uint16_t max_len){
+	if(sn > 7){
+		return 0;
+	}
+	
+	const w5500_bsb_t socket_reg = BSB_Sn_REG(sn);
+	const w5500_bsb_t socket_rx = BSB_Sn_RXbuf(sn);
+	const uint16_t SMASK = GetSocketMask(sn);
+  const uint16_t SSIZE = GetSocketSize(sn);
+	
+	uint16_t dataSize = BSB_Sn_RX_RSR(socket_reg);
+	if(dataSize == 0){
+		return 0;
+	}
+	
+	uint16_t ptr = BSB_Sn_RX_RD(socket_reg);
+	uint16_t offset = ptr & SMASK;
+	uint8_t udp_head_data[UDP_HEAD_SIZE];
+	W5500_ReadFromRingBuffer(sn, ptr, udp_head_data, UDP_HEAD_SIZE);
+	uint16_t udp_data_len = (udp_head_data[6] << 8) | udp_head_data[7];
+	uint16_t readLen = udp_data_len;
+	if(!udp_data_len){
+		return 0;
+	}
+	else if(udp_data_len > max_len){
+		readLen = max_len;
+	}
+	ptr += UDP_HEAD_SIZE;
+	offset = ptr & SMASK;
+	// 6. خواندن دیتا با در نظر گرفتن Wrap Around (دو تکه شدن)
+	W5500_ReadFromRingBuffer(sn,ptr,buf,readLen);
+	// 7. آپدیت پوینتر خواندن (RD) به اندازه دیتایی که واقعا خواندیم
+	ptr += udp_data_len;
+	W5500_WriteByte(W5500_SRB_Sn_RX_RD0, socket_reg, (ptr >> 8) & 0xFF);
+	W5500_WriteByte(W5500_SRB_Sn_RX_RD1, socket_reg, ptr & 0xFF);
+	// 8. صدور فرمان RECV (یعنی پردازش این بخش تمام شد)
+	W5500_WriteByte(W5500_SRB_Sn_CR, socket_reg, W5500_SN_CR_RECV);
+	// صبر کوتاه برای اعمال دستور (اختیاری ولی توصیه شده)
+	while(W5500_ReadByte(W5500_SRB_Sn_CR, socket_reg));
+	
+	return udp_data_len;
 }
