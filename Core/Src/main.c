@@ -108,7 +108,7 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 	
-	W5500_Init(mac,ip,subnet,getway);
+	W5500_Init_static_IP(mac,ip,subnet,getway);
 	if(W5500_SocketInit(0, 5000,W5500_SN_MR_P_TCP)) {
 		W5500_SocketListen(0);
   }

@@ -35,24 +35,24 @@ static inline uint16_t BSB_Sn_RX_RSR(w5500_bsb_t socket) {
 	uint8_t rsr_l = W5500_ReadByte(W5500_SRB_Sn_RX_RSR1, socket);
   return (rsr_h << 8) | rsr_l;
 }
-static inline uint16_t BSB_Sn_RX_RTR(w5500_bsb_t socket) {
+static inline uint16_t BSB_Sn_RX_RD(w5500_bsb_t socket) {
 	uint8_t ptr_h = W5500_ReadByte(W5500_SRB_Sn_RX_RD0, socket);
 	uint8_t ptr_l = W5500_ReadByte(W5500_SRB_Sn_RX_RD1, socket);
   return (ptr_h << 8) | ptr_l;
 }
 //aux
 void W5500_MemInit(void) {
-    // نوشتن مقادیر در سخت‌افزار W5500
-    // اینجا متاسفانه نمی‌توانیم لوپ بزنیم چون مقادیر ماکرو هستند و نام متفاوت دارند
-    // اما می‌توانیم یک آرایه موقت بسازیم
+	// نوشتن مقادیر در سخت‌افزار W5500
+	// اینجا متاسفانه نمی‌توانیم لوپ بزنیم چون مقادیر ماکرو هستند و نام متفاوت دارند
+	// اما می‌توانیم یک آرایه موقت بسازیم
 	const uint8_t sizes[8] = {
-			S0_BUF_SIZE, S1_BUF_SIZE, S2_BUF_SIZE, S3_BUF_SIZE,
-			S4_BUF_SIZE, S5_BUF_SIZE, S6_BUF_SIZE, S7_BUF_SIZE
+		S0_BUF_SIZE, S1_BUF_SIZE, S2_BUF_SIZE, S3_BUF_SIZE,
+		S4_BUF_SIZE, S5_BUF_SIZE, S6_BUF_SIZE, S7_BUF_SIZE
 	};
 	
 	for(int i=0; i<8; i++) {
-			W5500_WriteByte(W5500_SRB_Sn_TXBUF_SIZE, BSB_Sn_REG(i), sizes[i]);
-			W5500_WriteByte(W5500_SRB_Sn_RXBUF_SIZE, BSB_Sn_REG(i), sizes[i]);
+		W5500_WriteByte(W5500_SRB_Sn_TXBUF_SIZE, BSB_Sn_REG(i), sizes[i]);
+		W5500_WriteByte(W5500_SRB_Sn_RXBUF_SIZE, BSB_Sn_REG(i), sizes[i]);
 	}
 }
 static void W5500_SoftwareReset(void){
@@ -61,28 +61,8 @@ static void W5500_SoftwareReset(void){
 	// Wait for reset to clear (simple delay usually needed)
 	for(volatile int i=0; i<10000; i++);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // main
-void W5500_Init(uint8_t* mac, uint8_t* ip, uint8_t* sn, uint8_t* gw){
+void W5500_Init_static_IP(uint8_t* mac, uint8_t* ip, uint8_t* sn, uint8_t* gw){
 	// 1. Reset W5500 (Hardware Reset)
 	W5500_HardwareReset();
 	// 2. Reset W5500 (Software Reset)
@@ -116,10 +96,15 @@ uint8_t W5500_SocketInit(uint8_t sn, uint16_t port,w5500_sn_proto_t protocol /*,
 	W5500_WriteByte(W5500_SRB_Sn_PORT1,socket,(port & 0xFF));
 	// open socket
 	W5500_WriteByte(W5500_SRB_Sn_CR,socket,W5500_SN_CR_OPEN);
-	if(W5500_ReadByte(W5500_SRB_Sn_SR,socket) != W5500_SN_SR_INIT){
-		return 0;
+	uint8_t timeout = 0;
+	while(timeout < 200){
+		if(W5500_ReadByte(W5500_SRB_Sn_SR,socket) == W5500_SN_SR_INIT){
+			return 1;
+		}
+		__NOP();
+		timeout++;
 	}
-	return 1;
+	return 0;
 }
 uint8_t W5500_SocketListen(uint8_t sn){
 	if(sn > 7){
@@ -133,12 +118,12 @@ uint8_t W5500_SocketListen(uint8_t sn){
 	return 1;
 }
 
-void W5500_Send(uint8_t sn, uint8_t *buf, uint16_t len){
+int8_t W5500_Send(uint8_t sn, uint8_t *buf, uint16_t len){
 	if(len == 0){
-		return;
+		return 0;
 	}
 	if(sn > 7){
-		return;
+		return -1;
 	}
 	// 1. محاسبه سوکت و بلاک TX
   // فرض: هر سوکت 2KB حافظه دارد -> Mask = 0x07FF (2047)
@@ -147,18 +132,23 @@ void W5500_Send(uint8_t sn, uint8_t *buf, uint16_t len){
   const uint16_t SSIZE = GetSocketSize(sn);
 	
 	// 2. صبر برای فضای خالی (با تایم‌اوت)
-	uint32_t timeout = 0;
+	uint32_t startTick = HAL_GetTick(); 
 	uint16_t freeSize;
 	do{
+		// 1. خواندن فضای خالی
 		uint8_t fsr_h = W5500_ReadByte(W5500_SRB_Sn_TX_FSR0, socket);
 		uint8_t fsr_l = W5500_ReadByte(W5500_SRB_Sn_TX_FSR1, socket);
 		freeSize = (fsr_h << 8) | fsr_l;
-		
-		timeout++;
-    if(timeout > 0xFFFF) { // یک عدد تجربی (حدود چند میلی‌ثانیه)
-			// اینجا بهتره سوکت رو دیسکانکت کنی یا ارور برگردونی
-			return; // خروج اضطراری برای جلوگیری از هنگ کردن
-    }
+		// 2. چک کردن وضعیت سوکت (نکته طلایی صنعتی)
+		// اگر ارتباط قطع شده باشد، منتظر ماندن برای فضای خالی بی‌فایده است
+		uint8_t status = W5500_ReadByte(W5500_SRB_Sn_SR, socket);
+		if ((status != W5500_SN_SR_ESTABLISHED) && (status != W5500_SN_SR_CLOSE_WAIT)) {
+				return -1; // ارتباط قطع شده، ارسال کنسل است
+		}
+		// 3. چک کردن تایم‌اوت (مثلا 1000 میلی‌ثانیه)
+		if ((HAL_GetTick() - startTick) > 1000) {
+			return -2; // تایم‌اوت: شبکه شلوغ است یا بافر خالی نمی‌شود
+		}
 	} while (freeSize < len); //اين شرط احساس ميکنم شديدا بلاک کننده اس 
 	// 3. خواندن پوینتر فعلی نوشتن
 	uint8_t ptr_h = W5500_ReadByte(W5500_SRB_Sn_TX_WR0, socket);
@@ -189,37 +179,61 @@ void W5500_Send(uint8_t sn, uint8_t *buf, uint16_t len){
 	// 7. فرمان ارسال
   W5500_WriteByte(W5500_SRB_Sn_CR, socket, W5500_SN_CR_SEND);
 	// 8. صبر برای اتمام ارسال
-	timeout = 0;
-	while(W5500_ReadByte(W5500_SRB_Sn_CR, socket)) {
-		if (++timeout > 0xFFFF) break;
+	startTick = HAL_GetTick();
+	while (W5500_ReadByte(W5500_SRB_Sn_CR, socket)) {
+		if ((HAL_GetTick() - startTick) > 100) break; // نباید زیاد طول بکشد
 	}
+	
+	return 0; // موفقیت
 }
-
 uint16_t W5500_Recv(uint8_t sn, uint8_t *buf, uint16_t max_len) {
 	if(sn > 7){
 		return 0; // خطا 
-	}
-	const w5500_bsb_t socket = BSB_Sn_REG(sn);
+	}  
+	// 1. محاسبه آدرس بلاک‌ رجیستر
+	const w5500_bsb_t socket_reg = BSB_Sn_REG(sn);
+	const w5500_bsb_t socket_rx = BSB_Sn_RXbuf(sn);
+	//دریافت تنظیمات سایز و ماسک (از توابع کمکی که ساختیم)
 	const uint16_t SMASK = GetSocketMask(sn);
   const uint16_t SSIZE = GetSocketSize(sn);
-	uint16_t dataSize = BSB_Sn_RX_RSR(socket);
+	
+	// 2. چقدر دیتا آمده است؟ (Received Size Register)
+	uint16_t dataSize = BSB_Sn_RX_RSR(socket_reg);
 	if(dataSize == 0){
 		return 0;
 	}
-	if(dataSize > max_len){
-		dataSize = max_len; // جلوگیری از سرریز بافر شما
+	uint16_t readLen = dataSize;
+	if (readLen > max_len) {
+		readLen = max_len;
 	}
-	// 2. خواندن پوینتر خواندن (RX Read Pointer)
-	uint16_t ptr = BSB_Sn_RX_RTR(socket);
-	// 3. خواندن دیتا
-	uint16_t offset = ptr & SMASK; 
-	W5500_ReadBuf(offset, BSB_Sn_TXbuf(sn), buf, dataSize);
+	// 4. خواندن پوینتر خواندن (Read Pointer)
+	uint16_t ptr = BSB_Sn_RX_RD(socket_reg);
+	// 5. محاسبه آفست فیزیکی در بافر حلقوی
+	uint16_t offset = ptr & SMASK;
+	// 6. خواندن دیتا با در نظر گرفتن Wrap Around (دو تکه شدن)
+	if ( (offset + readLen) > SSIZE ) {
+		// حالت خاص: دیتا از انتهای بافر رد شده و به اول برگشته
+		uint16_t size1 = SSIZE - offset;    // تکه اول: از آفست تا ته بافر
+		uint16_t size2 = readLen - size1;   // تکه دوم: از اول بافر (آدرس 0)
+
+		// خواندن بخش اول
+		W5500_ReadBuf(offset, socket_rx, buf, size1);
+		
+		// خواندن بخش دوم (نوشتن در ادامه بافر buf)
+		W5500_ReadBuf(0, socket_rx, buf + size1, size2);
+	} 
+	else{
+		// حالت عادی: دیتا یک تکه است و جا می‌شود
+		W5500_ReadBuf(offset, socket_rx, buf, readLen);
+	}
+	// 7. آپدیت پوینتر خواندن (RD) به اندازه دیتایی که واقعا خواندیم
+	ptr += readLen;
+	W5500_WriteByte(W5500_SRB_Sn_RX_RD0, socket_reg, (ptr >> 8) & 0xFF);
+	W5500_WriteByte(W5500_SRB_Sn_RX_RD1, socket_reg, ptr & 0xFF);
+	// 8. صدور فرمان RECV (یعنی پردازش این بخش تمام شد)
+	W5500_WriteByte(W5500_SRB_Sn_CR, socket_reg, W5500_SN_CR_RECV);
+	// صبر کوتاه برای اعمال دستور (اختیاری ولی توصیه شده)
+	while(W5500_ReadByte(W5500_SRB_Sn_CR, socket_reg));
 	
-	// 4. آپدیت پوینتر و دستور RECV (که یعنی من خوندم، آزاد کن)
-	ptr += dataSize;
-	W5500_WriteByte(W5500_SRB_Sn_RX_RD0, socket, (ptr >> 8) & 0xFF);
-	W5500_WriteByte(W5500_SRB_Sn_RX_RD1, socket, ptr & 0xFF);
-	
-	W5500_WriteByte(W5500_SRB_Sn_CR, socket, W5500_SN_CR_RECV);
-	return dataSize;
+	return readLen; // مقدار دیتایی که خواندیم را برمی‌گردانیم
 }
