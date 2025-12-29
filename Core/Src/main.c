@@ -72,13 +72,13 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-	uint8_t mac[6] = {0x02,0x00,0x00,0x00,0x00,0x02};
+	
 
 	uint8_t subnet[4] = {255,255,255,0};
 
 	uint8_t getway[4] = {192,168,30,100};
 
-	uint8_t ip[4] = {192,168,30,77};
+	uint8_t ip[4] = {192,168,30,79};
 
 	uint8_t rx_buffer[128]; // بافر دریافت
 	
@@ -107,12 +107,13 @@ int main(void)
   MX_SPI2_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-	
-	W5500_Init_static_IP(mac,ip,subnet,getway);
-	if(W5500_SocketInit(0, 5000,W5500_SN_MR_P_TCP)) {
+	netif_init_mac();
+	const uint8_t* mac = (uint8_t*)netif_get_mac();
+	W5500_Init_static_IP((uint8_t*)mac,ip,subnet,getway);
+	/*if(W5500_SocketInit(0, 5000,W5500_SN_MR_P_TCP)) {
 		W5500_SocketListen(0);
-  }
-	uint32_t test = UID_BASE;
+  }*/
+	
   /* USER CODE END 2 */
 
   /* Infinite loop */

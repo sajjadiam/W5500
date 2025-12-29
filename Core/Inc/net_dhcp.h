@@ -22,14 +22,16 @@
 #define DHCP_MAGIC_COOOKIE		236	// 4 byte
 #define DHCP_OPTIONS					240	//
 typedef enum { 
-	DHCP_STATE_INIT = 0, 
-	DHCP_STATE_DISCOVER, 
-	DHCP_STATE_WAIT_OFFER, 
-	DHCP_STATE_REQUEST, 
-	DHCP_STATE_WAIT_ACK, 
-	DHCP_STATE_BOUND, 
-	DHCP_STATE_RETRY, 
-	DHCP_STATE_FAIL, 
+	DHCP_STATE_INIT 			= 0, 
+	DHCP_STATE_DISCOVER		, 
+	DHCP_STATE_WAIT_OFFER	, 
+	DHCP_STATE_REQUEST		, 
+	DHCP_STATE_WAIT_ACK		, 
+	DHCP_STATE_BOUND			, 
+	DHCP_STATE_RETRY			, 
+	DHCP_STATE_FAIL				,
+	DHCP_STATE_IDLE				,
+	DHCP_STATE_END
 }dhcp_state_t;
 extern volatile dhcp_state_t dhcp_state;
 typedef struct {
@@ -38,19 +40,24 @@ typedef struct {
 	uint8_t  offered_ip[4];    // yiaddr از OFFER
 	uint8_t  subnet[4];
 	uint8_t  gateway[4];
+	uint8_t  dns[4];
 	uint32_t lease_time;
-
+	uint32_t renewal_Time;
+	uint32_t rebinding_Time;
+	uint32_t bound_tick;
 	uint32_t last_tick;
 	uint8_t  retry_count;
 	uint16_t bufLen;
 }dhcp_ctx_t;
 
-void DHCP_INIT(void); 
-void DHCP_DISCOVER(void); 
+typedef void (*DHCP_Func_t)(void);
+void DHCP_INIT			(void); 
+void DHCP_DISCOVER	(void); 
 void DHCP_WAIT_OFFER(void); 
-void DHCP_REQUEST(void); 
-void DHCP_WAIT_ACK(void); 
-void DHCP_BOUND(void); 
-void DHCP_RETRY(void);
-
+void DHCP_REQUEST		(void); 
+void DHCP_WAIT_ACK	(void); 
+void DHCP_BOUND			(void); 
+void DHCP_RETRY			(void);
+void DHCP_FAIL			(void);
+void DHCP_IDLE			(void);
 #endif // NET_DHCP_H

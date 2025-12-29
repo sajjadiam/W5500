@@ -274,7 +274,7 @@ uint8_t W5500_Set_UDP_Destination(uint8_t sn,uint8_t* ds_ip,uint16_t ds_port){
 	
 	return 1;
 }
-int8_t W5500_SendUDP(uint8_t sn, uint8_t *buf, uint16_t len) {
+int8_t W5500_Send_UDP(uint8_t sn, uint8_t *buf, uint16_t len){
 	if(len == 0){
 		return 0;
 	}

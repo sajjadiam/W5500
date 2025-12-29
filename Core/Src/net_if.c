@@ -2,8 +2,6 @@
 #include "net_if.h"
 
 
-
-
 static uint8_t device_mac[6];
 static void set_mac(uint8_t* macArr){
 	macArr[0] = 0x02;												// local mac
