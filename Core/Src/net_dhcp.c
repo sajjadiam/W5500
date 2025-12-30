@@ -5,7 +5,7 @@
 #include "net_if.h"
 #include "W5500_core.h"
 
-volatile dhcp_state_t dhcp_state = DHCP_STATE_INIT;
+
 static dhcp_ctx_t dhcp_ctx;
 DHCP_Func_t dhcp_sm[DHCP_STATE_END] = {
 	[DHCP_STATE_INIT 			] = DHCP_INIT				,			
@@ -42,12 +42,13 @@ void DHCP_INIT(void){
 	// 1. init MAC
 	netif_init_mac();
 	// 2. init socket UDP (port 68)
-	W5500_SocketInit(0/*socket*/, 68/*port*/,W5500_SN_MR_P_UDP/*protocol*/);
+	W5500_SocketInit(DHCP_SOCK/*socket*/, BROADCAST_PORT/*port*/,W5500_SN_MR_P_UDP/*protocol*/);
 	// 3. clear DHCP context
 	srand(SysTick->VAL ^ UID_WORD0 ^ UID_WORD1 ^ UID_WORD2);				// turn on random cereator 
 	dhcp_clear_context();
 	// 4. go to DISCOVER
-	dhcp_state = DHCP_STATE_DISCOVER;
+	dhcp_ctx.state = DHCP_STATE_DISCOVER;
+	
 }
 static void init_dhcp_discover_buf(uint8_t* discover){
 	memset(discover, 0, DHCP_BUF_SIZE);
@@ -97,7 +98,11 @@ static void init_dhcp_discover_buf(uint8_t* discover){
 	discover[opt++] = 1;   // Ethernet
 	memcpy(&discover[opt], mac, 6);
 	opt += 6;
-
+	/* Option 57: Maximum DHCP Message Size */
+	discover[opt++] = 57;
+	discover[opt++] = 2;
+	discover[opt++] = (DHCP_BUF_SIZE >> 8) & 0xFF;
+	discover[opt++] = DHCP_BUF_SIZE & 0xFF;
 	/* End */
 	discover[opt++] = 255;
 	dhcp_ctx.bufLen = opt;
@@ -107,13 +112,13 @@ void DHCP_DISCOVER(void){
 	uint8_t discover[DHCP_BUF_SIZE] = {0}; // اندازه کافی برای BOOTP + Cookie + Options
 	init_dhcp_discover_buf(discover);
 	// 2. send broadcast to 255.255.255.255:67
-	uint8_t server_ip[4] = { 255 ,255 ,255 ,255};
-	W5500_Set_UDP_Destination(0,server_ip,67);
-	W5500_Send_UDP(0,discover,dhcp_ctx.bufLen);
+	uint8_t broadcast_ip[4] = { 255 ,255 ,255 ,255};
+	W5500_Set_UDP_Destination(DHCP_SOCK,broadcast_ip,BROADCAST_DPORT);
+	W5500_Send_UDP(DHCP_SOCK,discover,dhcp_ctx.bufLen);
 	// 3. start timeout timer
 	dhcp_ctx.last_tick = HAL_GetTick();
 	// 4. go to WAIT_OFFER
-	dhcp_state = DHCP_STATE_WAIT_OFFER;
+	dhcp_ctx.state = DHCP_STATE_WAIT_OFFER;
 }
 static uint8_t* get_dhcp_option(uint8_t* buf, uint16_t buf_len, uint8_t target_option){
 	// ۱. رفتن به شروع آپشن‌ها (بعد از Magic Cookie)
@@ -146,7 +151,8 @@ void DHCP_WAIT_OFFER(void){
 	int len;
 	// 1. check timeout
 	if (HAL_GetTick() - dhcp_ctx.last_tick > 3000) {
-		dhcp_state = DHCP_STATE_RETRY;
+		dhcp_ctx.state = DHCP_STATE_RETRY;
+		dhcp_ctx.error = dhcp_offer_timeout_err;
 		return;
 	}
 	// 2. check if packet received
@@ -206,7 +212,7 @@ void DHCP_WAIT_OFFER(void){
 		memcpy(dhcp_ctx.dns,opt_val,4);
 	}
 	// 9. go to REQUEST
-	dhcp_state = DHCP_STATE_REQUEST;
+	dhcp_ctx.state = DHCP_STATE_REQUEST;
 }
 static void init_dhcp_request_buf(uint8_t* request){
 	memset(request, 0, DHCP_BUF_SIZE);
@@ -271,6 +277,11 @@ static void init_dhcp_request_buf(uint8_t* request){
 	request[opt++] = 51;  // Lease time
 	request[opt++] = 58;  // T1
 	request[opt++] = 59;  // T2
+	/* Option 57: Maximum DHCP Message Size */
+	request[opt++] = 57;
+	request[opt++] = 2;
+	request[opt++] = (DHCP_BUF_SIZE >> 8) & 0xFF;
+	request[opt++] = DHCP_BUF_SIZE & 0xFF;
 	/* End */
 	request[opt++] = 255;
 	dhcp_ctx.bufLen = opt;
@@ -280,14 +291,14 @@ void DHCP_REQUEST(void){
 	// - build DHCP REQUEST
 	init_dhcp_request_buf(request);
 	// - send broadcast or unicast
-	W5500_SocketInit(0/*socket*/, 68/*port*/,W5500_SN_MR_P_UDP/*protocol*/);
+	W5500_SocketInit(DHCP_SOCK/*socket*/, BROADCAST_PORT/*port*/,W5500_SN_MR_P_UDP/*protocol*/);
 	uint8_t server_ip[4] = { 255 ,255 ,255 ,255};
-	W5500_Set_UDP_Destination(0,server_ip,67);
-	W5500_Send_UDP(0,request,dhcp_ctx.bufLen);
+	W5500_Set_UDP_Destination(DHCP_SOCK,server_ip,BROADCAST_DPORT);
+	W5500_Send_UDP(DHCP_SOCK,request,dhcp_ctx.bufLen);
 	// - start timeout
 	dhcp_ctx.last_tick = HAL_GetTick();
 	// - go to WAIT_ACK
-	dhcp_state = DHCP_STATE_WAIT_ACK;
+	dhcp_ctx.state = DHCP_STATE_WAIT_ACK;
 }
 void DHCP_WAIT_ACK(void){
 	// - wait for UDP packet
@@ -295,7 +306,8 @@ void DHCP_WAIT_ACK(void){
 	int len;
 	// 1. check timeout
 	if (HAL_GetTick() - dhcp_ctx.last_tick > 3000) {
-		dhcp_state = DHCP_STATE_RETRY;
+		dhcp_ctx.state = DHCP_STATE_RETRY;
+		dhcp_ctx.error = dhcp_ack_timeout_err;
 		return;
 	}
 	// 2. check if packet received
@@ -333,11 +345,12 @@ void DHCP_WAIT_ACK(void){
 	if((opt_val == NULL)){
 		return;
 	}
-	if(*opt_val == 0x06){
-		dhcp_state = DHCP_STATE_RETRY;
+	if(*opt_val == OPT53_NACK){
+		dhcp_ctx.state = DHCP_STATE_RETRY;
+		dhcp_ctx.error = dhcp_nack_err;
 		return;
 	}
-	if(*opt_val != 0x05){
+	if(*opt_val != OPT53_ACK){
 		return;
 	}
 	//     - extract subnet, gateway, dns
@@ -391,22 +404,54 @@ void DHCP_WAIT_ACK(void){
 															((uint32_t)*(opt_val + 2) << 8) | (uint32_t)*(opt_val + 3);
 	}
 	// 9. go to BOUND
-	dhcp_state = DHCP_STATE_BOUND;
+	dhcp_ctx.state = DHCP_STATE_BOUND;
 }
 void DHCP_BOUND(void){
 	dhcp_ctx.bound_tick = HAL_GetTick();
 	// - network is usable
 	W5500_Init_static_IP((uint8_t*)netif_get_mac(),dhcp_ctx.offered_ip,dhcp_ctx.subnet,dhcp_ctx.gateway);
+	netif_set_dns1(dhcp_ctx.dns);
 	// - start lease timer (optional)
-	dhcp_state = DHCP_STATE_IDLE;
+	
 	// - normal operation
+	dhcp_ctx.state = DHCP_STATE_IDLE;
 }
 void DHCP_RETRY(void){
-	
+	if(dhcp_ctx.retry_count >= 10){
+		dhcp_ctx.state = DHCP_STATE_FAIL;
+		return;
+	}
+	switch(dhcp_ctx.error){
+		case dhcp_idle_err:{
+			
+			break;
+		}
+		case dhcp_offer_timeout_err:{
+			
+			break;
+		}
+		case dhcp_ack_timeout_err:{
+			
+			break;
+		}
+		case dhcp_nack_err:{
+			
+			break;
+		}
+		default:{
+			
+			break;
+		}
+	}
 }
 void DHCP_FAIL			(void){
 	
 }
 void DHCP_IDLE			(void){
-	
+	if(dhcp_ctx.bound_tick - HAL_GetTick() > 1){
+		
+	}
+}
+void dhcp_stateMachine(void){
+	dhcp_sm[dhcp_ctx.state]();
 }

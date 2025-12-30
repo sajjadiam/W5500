@@ -459,6 +459,11 @@
               <FileType>1</FileType>
               <FilePath>..\Core\Src\net_if.c</FilePath>
             </File>
+            <File>
+              <FileName>link_manager.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\link_manager.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

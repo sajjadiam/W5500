@@ -10,4 +10,8 @@
 
 void netif_init_mac(void);
 const uint8_t* netif_get_mac(void);
+void netif_set_dns1(uint8_t* dns);
+void netif_set_dns2(uint8_t* dns);
+uint8_t* netif_get_dns1(void);
+uint8_t* netif_get_dns2(void);
 #endif //NET_IF_H
