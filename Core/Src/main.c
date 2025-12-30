@@ -30,6 +30,8 @@
 #include "w5500_core.h"
 #include "string.h"
 #include "net_if.h"
+#include "net_dhcp.h"
+#include "link_manager.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,7 +52,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+uint8_t dhcp_flag = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -113,14 +115,26 @@ int main(void)
 	/*if(W5500_SocketInit(0, 5000,W5500_SN_MR_P_TCP)) {
 		W5500_SocketListen(0);
   }*/
-	
+	static uint32_t t=0;
+	static w5500_phycfgr_bits_t link = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-		uint8_t status = W5500_ReadByte(W5500_SRB_Sn_SR, W5500_BSB_0_Register);
+		if(HAL_GetTick()-t>500){
+			t=HAL_GetTick();
+			link = link_status();
+		}
+		if(dhcp_flag && link){
+			dhcp_stateMachine();
+			if(has_ip){
+				HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+			}
+		}
+		
+		/*uint8_t status = W5500_ReadByte(W5500_SRB_Sn_SR, W5500_BSB_0_Register);
 		switch(status) {
 			case W5500_SN_SR_ESTABLISHED:{ // کلاینت وصل شده
 				// آیا دیتایی آمده؟
@@ -152,7 +166,7 @@ int main(void)
 			}
 		}
         
-		HAL_Delay(10);
+		HAL_Delay(10);*/
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -207,7 +221,11 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim){
+	if(htim->Instance == TIM2){
+		dhcp_flag = 1;
+	}
+}
 /* USER CODE END 4 */
 
 /**

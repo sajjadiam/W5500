@@ -32,5 +32,5 @@ w5500\ test/net_dhcp.o: ..\Core\Src\net_dhcp.c ..\Core\Inc\net_dhcp.h \
   ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal_spi.h \
   ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal_tim.h \
   ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal_tim_ex.h \
-  ..\Core\Inc\W5500_core.h ..\Core\Inc\W5500.h ..\Core\Inc\main.h \
-  ..\Core\Inc\W5500_regs.h
+  ..\Core\Inc\link_manager.h ..\Core\Inc\W5500.h ..\Core\Inc\main.h \
+  ..\Core\Inc\W5500_regs.h ..\Core\Inc\W5500_core.h

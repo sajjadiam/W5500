@@ -60,6 +60,9 @@ typedef enum{
 	DHCP_Dynamic		= 0,
 	DHCP_Reservation,
 }dhcp_mode_t;
+typedef struct{
+	uint8_t has_lease		: 1;
+}dhcp_flags_t;
 extern volatile dhcp_state_t dhcp_state;
 typedef struct {
 	uint32_t 			xid;              // Transaction ID
@@ -78,6 +81,7 @@ typedef struct {
 	dhcp_state_t	state;
 	dhcp_mode_t 	mode;
 	dhcp_error_t 	error;
+	dhcp_flags_t	flags;
 }dhcp_ctx_t;
 
 typedef void (*DHCP_Func_t)(void);

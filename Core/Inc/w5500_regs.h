@@ -343,9 +343,9 @@ typedef enum{	//Operation Mode Configuration Bit
 	W5500_PHY_OPMDC_100BT_HD_Dis	= (0x02 << 3),
 	W5500_PHY_OPMDC_100BT_FD_Dis	= (0x03 << 3),
 	W5500_PHY_OPMDC_100BT_HD_En		= (0x04 << 3),
-	W5500_PHY_OPMDC_NotUsed			= (0x05 << 3),
+	W5500_PHY_OPMDC_NotUsed				= (0x05 << 3),
 	W5500_PHY_OPMDC_PowerDownmode	= (0x06 << 3),
-	W5500_PHY_OPMDC_All_En			= (0x07 << 3),
+	W5500_PHY_OPMDC_All_En				= (0x07 << 3),
 }w5500_phy_opmdc_t;
 typedef enum{	//W5500 PHY Configuration Register
 	// Link Status [Read Only]

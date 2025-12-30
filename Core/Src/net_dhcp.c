@@ -3,11 +3,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "net_if.h"
+#include "link_manager.h"
 #include "W5500_core.h"
 
 
 static dhcp_ctx_t dhcp_ctx;
-DHCP_Func_t dhcp_sm[DHCP_STATE_END] = {
+static DHCP_Func_t dhcp_sm[DHCP_STATE_END] = {
 	[DHCP_STATE_INIT 			] = DHCP_INIT				,			
 	[DHCP_STATE_DISCOVER	]	= DHCP_DISCOVER		,
 	[DHCP_STATE_WAIT_OFFER]	= DHCP_WAIT_OFFER	,
@@ -185,29 +186,29 @@ void DHCP_WAIT_OFFER(void){
 	}
 	// 8. parse options
 	// - if message type == OFFER: (check option 53)
-	uint8_t* opt_val = get_dhcp_option(dhcp_buf,DHCP_BUF_SIZE,53);
+	uint8_t* opt_val = get_dhcp_option(dhcp_buf,len,53);
 	if((opt_val == NULL) || (*opt_val != 0x02)){
 		return;
 	}
 	// 	- save YIADDR as offered_ip.
 	memcpy(dhcp_ctx.offered_ip,&dhcp_buf[DHCP_YIADDR],4);
 	//  - save Option 54 as server_ip
-	opt_val = get_dhcp_option(dhcp_buf,DHCP_BUF_SIZE,54);
+	opt_val = get_dhcp_option(dhcp_buf,len,54);
 	if(opt_val != NULL){
 		memcpy(dhcp_ctx.server_ip,opt_val,4);
 	}
 	//	- save Option 1 as Subnet mask
-	opt_val = get_dhcp_option(dhcp_buf,DHCP_BUF_SIZE,1);
+	opt_val = get_dhcp_option(dhcp_buf,len,1);
 	if(opt_val != NULL){
 		memcpy(dhcp_ctx.subnet,opt_val,4);
 	}
 	//	- save Option 3 as Gateway
-	opt_val = get_dhcp_option(dhcp_buf,DHCP_BUF_SIZE,3);
+	opt_val = get_dhcp_option(dhcp_buf,len,3);
 	if(opt_val != NULL){
 		memcpy(dhcp_ctx.gateway,opt_val,4);
 	}
 	//	- save Option 6 as DNS
-	opt_val = get_dhcp_option(dhcp_buf,DHCP_BUF_SIZE,6);
+	opt_val = get_dhcp_option(dhcp_buf,len,6);
 	if(opt_val != NULL){
 		memcpy(dhcp_ctx.dns,opt_val,4);
 	}
@@ -341,7 +342,7 @@ void DHCP_WAIT_ACK(void){
 	}
 	// 8. parse options
 	// - if message type == ACK:(check option 53)
-	uint8_t* opt_val = get_dhcp_option(dhcp_buf,DHCP_BUF_SIZE,53);
+	uint8_t* opt_val = get_dhcp_option(dhcp_buf,len,53);
 	if((opt_val == NULL)){
 		return;
 	}
@@ -357,7 +358,7 @@ void DHCP_WAIT_ACK(void){
 	// 	- save YIADDR as offered_ip.
 	memcpy(dhcp_ctx.offered_ip,&dhcp_buf[DHCP_YIADDR],4);
 	//  - save Option 54 as server_ip
-	opt_val = get_dhcp_option(dhcp_buf,DHCP_BUF_SIZE,54);
+	opt_val = get_dhcp_option(dhcp_buf,len,54);
 	if(opt_val != NULL){
 		memcpy(dhcp_ctx.server_ip,opt_val,4);
 	}
@@ -365,7 +366,7 @@ void DHCP_WAIT_ACK(void){
 		return;
 	}
 	//	- save Option 1 as Subnet mask
-	opt_val = get_dhcp_option(dhcp_buf,DHCP_BUF_SIZE,1);
+	opt_val = get_dhcp_option(dhcp_buf,len,1);
 	if(opt_val != NULL){
 		memcpy(dhcp_ctx.subnet,opt_val,4);
 	}
@@ -373,7 +374,7 @@ void DHCP_WAIT_ACK(void){
 		return;
 	}
 	//	- save Option 3 as Gateway
-	opt_val = get_dhcp_option(dhcp_buf,DHCP_BUF_SIZE,3);
+	opt_val = get_dhcp_option(dhcp_buf,len,3);
 	if(opt_val != NULL){
 		memcpy(dhcp_ctx.gateway,opt_val,4);
 	}
@@ -381,24 +382,24 @@ void DHCP_WAIT_ACK(void){
 		return;
 	}
 	//	- save Option 6 as DNS
-	opt_val = get_dhcp_option(dhcp_buf,DHCP_BUF_SIZE,6);
+	opt_val = get_dhcp_option(dhcp_buf,len,6);
 	if(opt_val != NULL){
 		memcpy(dhcp_ctx.dns,opt_val,4);
 	}
 	//  - save option 51 as lease time 
-	opt_val = get_dhcp_option(dhcp_buf,DHCP_BUF_SIZE,51);
+	opt_val = get_dhcp_option(dhcp_buf,len,51);
 	if(opt_val != NULL){
 		dhcp_ctx.lease_time = ((uint32_t)*opt_val << 24) | ((uint32_t)*(opt_val + 1) << 16) | 
 													((uint32_t)*(opt_val + 2) << 8) | (uint32_t)*(opt_val + 3);
 	}
 	//  - save option 58 as Renewal Time (T1) 
-	opt_val = get_dhcp_option(dhcp_buf,DHCP_BUF_SIZE,58);
+	opt_val = get_dhcp_option(dhcp_buf,len,58);
 	if(opt_val != NULL){
 		dhcp_ctx.renewal_Time = ((uint32_t)*opt_val << 24) | ((uint32_t)*(opt_val + 1) << 16) | 
 														((uint32_t)*(opt_val + 2) << 8) | (uint32_t)*(opt_val + 3);
 	}
 	//  - save option 59 as Rebinding Time (T2) 
-	opt_val = get_dhcp_option(dhcp_buf,DHCP_BUF_SIZE,59);
+	opt_val = get_dhcp_option(dhcp_buf,len,59);
 	if(opt_val != NULL){
 		dhcp_ctx.rebinding_Time = ((uint32_t)*opt_val << 24) | ((uint32_t)*(opt_val + 1) << 16) | 
 															((uint32_t)*(opt_val + 2) << 8) | (uint32_t)*(opt_val + 3);
@@ -409,13 +410,17 @@ void DHCP_WAIT_ACK(void){
 void DHCP_BOUND(void){
 	dhcp_ctx.bound_tick = HAL_GetTick();
 	// - network is usable
+	
 	W5500_Init_static_IP((uint8_t*)netif_get_mac(),dhcp_ctx.offered_ip,dhcp_ctx.subnet,dhcp_ctx.gateway);
 	netif_set_dns1(dhcp_ctx.dns);
+	netif_set_ip(dhcp_ctx.offered_ip);
 	// - start lease timer (optional)
-	
+	dhcp_ctx.bound_tick = HAL_GetTick();
+	dhcp_ctx.flags.has_lease = 1;
 	// - normal operation
 	dhcp_ctx.state = DHCP_STATE_IDLE;
 }
+
 void DHCP_RETRY(void){
 	if(dhcp_ctx.retry_count >= 10){
 		dhcp_ctx.state = DHCP_STATE_FAIL;
@@ -448,8 +453,8 @@ void DHCP_FAIL			(void){
 	
 }
 void DHCP_IDLE			(void){
-	if(dhcp_ctx.bound_tick - HAL_GetTick() > 1){
-		
+	if(HAL_GetTick() - dhcp_ctx.bound_tick >= 1000/* 1 second */){
+		dhcp_ctx.bound_tick = HAL_GetTick();
 	}
 }
 void dhcp_stateMachine(void){

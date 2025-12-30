@@ -14,4 +14,7 @@ void netif_set_dns1(uint8_t* dns);
 void netif_set_dns2(uint8_t* dns);
 uint8_t* netif_get_dns1(void);
 uint8_t* netif_get_dns2(void);
+void netif_set_ip(uint8_t* ip);
+uint8_t* netif_get_ip(void);
+extern uint8_t has_ip;
 #endif //NET_IF_H
