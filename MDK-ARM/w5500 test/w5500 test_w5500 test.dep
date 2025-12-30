@@ -5,7 +5,7 @@ F (..\Core\Src\factory_proto.c)(0x69469690)(-xc -std=c99 --target=arm-arm-none-e
 I (..\Core\Inc\factory_proto.h)(0x69469690)
 I (C:\Keil_v5\ARM\ARMCLANG\include\stdint.h)(0x63892A08)
 F (..\Core\Src\net_dhcp.c)(0x6953B963)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m3 -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-gdwarf-4 -O1 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32F1xx_HAL_Driver/Inc -I ../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_w5500_test-IC:/Users/Electronic/AppData/Local/Arm/Packs/ARM/CMSIS/5.9.0/CMSIS/Core/Include-IC:/Users/Electronic/AppData/Local/Arm/Packs/Keil/STM32F1xx_DFP/2.4.1/Device/Include-D__UVISION_VERSION="538" -D_RTE_ -DSTM32F10X_MD -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F103xB-o "w5500 test/net_dhcp.o" -MD)
-I (..\Core\Inc\net_dhcp.h)(0x6953B8F0)
+I (..\Core\Inc\net_dhcp.h)(0x6953B9C9)
 I (C:\Keil_v5\ARM\ARMCLANG\include\stdint.h)(0x63892A08)
 I (C:\Keil_v5\ARM\ARMCLANG\include\stdlib.h)(0x63892A08)
 I (C:\Keil_v5\ARM\ARMCLANG\include\string.h)(0x63892A08)
