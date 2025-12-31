@@ -19,6 +19,27 @@ static DHCP_Func_t dhcp_sm[DHCP_STATE_END] = {
 	[DHCP_STATE_FAIL			]	= DHCP_FAIL				,
 	[DHCP_STATE_IDLE			]	= DHCP_IDLE
 };
+void W5500_Init_DHCP(uint8_t* mac){
+	uint8_t zero[4] = {0,0,0,0};
+
+	// 1) ریست سخت‌افزاری + نرم‌افزاری
+	W5500_HardwareReset();
+	W5500_SoftwareReset();
+
+	// 2) تنظیم حافظه سوکت‌ها (اگر تعریف‌های S0..S7 داری، این باید یکبار ست شود)
+	W5500_MemInit();
+
+	// 3) MAC را داخل خود W5500 بنویس (خیلی مهم!)
+	W5500_WriteReg(W5500_CRB_SHAR0, W5500_BSB_Common, mac, CR_DATA_LEN_SHAR);
+
+	// 4) برای DHCP طبق استاندارد IP/Subnet/GW را صفر کن
+	W5500_WriteReg(W5500_CRB_GAR0,  W5500_BSB_Common, zero, CR_DATA_LEN_GAR);
+	W5500_WriteReg(W5500_CRB_SUBR0, W5500_BSB_Common, zero, CR_DATA_LEN_SUBR);
+	W5500_WriteReg(W5500_CRB_SIPR0, W5500_BSB_Common, zero, CR_DATA_LEN_SIPR);
+
+	// اگر دوست داشتی اینجا می‌تونی Interruptها/Socketها رو هم پاکسازی کنی،
+	// ولی برای شروع همین کافیه.
+}
 static uint32_t generate_xid(void){
     uint32_t rand1 = (uint32_t)rand();
     uint32_t rand2 = (uint32_t)rand();
@@ -41,7 +62,7 @@ static void dhcp_clear_context(void){
 }
 void DHCP_INIT(void){
 	// 1. init MAC
-	netif_init_mac();
+	
 	// 2. init socket UDP (port 68)
 	W5500_SocketInit(DHCP_SOCK/*socket*/, BROADCAST_PORT/*port*/,W5500_SN_MR_P_UDP/*protocol*/);
 	// 3. clear DHCP context
@@ -157,7 +178,7 @@ void DHCP_WAIT_OFFER(void){
 		return;
 	}
 	// 2. check if packet received
-	len = W5500_Recv_UDP(0, dhcp_buf, DHCP_BUF_SIZE);
+	len = W5500_Recv_UDP(DHCP_SOCK, dhcp_buf, DHCP_BUF_SIZE);
 	if (len <= 0) {
 		return; // هنوز چیزی نیومده
 	}
@@ -292,9 +313,6 @@ void DHCP_REQUEST(void){
 	// - build DHCP REQUEST
 	init_dhcp_request_buf(request);
 	// - send broadcast or unicast
-	W5500_SocketInit(DHCP_SOCK/*socket*/, BROADCAST_PORT/*port*/,W5500_SN_MR_P_UDP/*protocol*/);
-	uint8_t server_ip[4] = { 255 ,255 ,255 ,255};
-	W5500_Set_UDP_Destination(DHCP_SOCK,server_ip,BROADCAST_DPORT);
 	W5500_Send_UDP(DHCP_SOCK,request,dhcp_ctx.bufLen);
 	// - start timeout
 	dhcp_ctx.last_tick = HAL_GetTick();
@@ -312,7 +330,7 @@ void DHCP_WAIT_ACK(void){
 		return;
 	}
 	// 2. check if packet received
-	len = W5500_Recv_UDP(0, dhcp_buf, DHCP_BUF_SIZE);
+	len = W5500_Recv_UDP(DHCP_SOCK, dhcp_buf, DHCP_BUF_SIZE);
 	if (len <= 0) {
 		return; // هنوز چیزی نیومده
 	}

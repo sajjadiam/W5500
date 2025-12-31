@@ -74,14 +74,6 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-	
-
-	uint8_t subnet[4] = {255,255,255,0};
-
-	uint8_t getway[4] = {192,168,30,100};
-
-	uint8_t ip[4] = {192,168,30,79};
-
 	uint8_t rx_buffer[128]; // بافر دریافت
 	
   /* USER CODE END 1 */
@@ -110,29 +102,33 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 	//netif_init_mac();
-	const uint8_t* mac = (uint8_t*)netif_get_mac();
-	//W5500_Init_static_IP((uint8_t*)mac,ip,subnet,getway);
-	/*if(W5500_SocketInit(0, 5000,W5500_SN_MR_P_TCP)) {
-		W5500_SocketListen(0);
-  }*/
-	static uint32_t t=0;
+	
+	netif_init_mac();
+	W5500_Init_DHCP((uint8_t*)netif_get_mac());
+	static uint32_t t = 0;
 	static w5500_phycfgr_bits_t link = 0;
+	static w5500_cr_addr_t ver = 0;
 	HAL_TIM_Base_Start_IT(&htim2);
   /* USER CODE END 2 */
-
+	//HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-		/*if(HAL_GetTick()-t>500){
-			t=HAL_GetTick();
-			link = link_status();
-		}*/
-		if(dhcp_flag ){
+		if(HAL_GetTick() - t > 100){
+			t = HAL_GetTick();
+		  ver = W5500_ReadByte(W5500_CRB_VERSIONR, W5500_BSB_Common);
+			link = W5500_ReadByte(W5500_CRB_PHYCFGR,W5500_BSB_Common) & W5500_PHYCFGR_LNK;
+		}
+		if(dhcp_flag & link){
 			dhcp_flag = 0;
 			dhcp_stateMachine();
 			if(has_ip){
-				HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+				//W5500_Init_static_IP((uint8_t*)mac,ip,subnet,getway);
+				if(W5500_SocketInit(0, 5000,W5500_SN_MR_P_TCP)) {
+					W5500_SocketListen(0);
+				}
 			}
 		}
 		

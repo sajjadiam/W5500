@@ -84,6 +84,7 @@ typedef struct {
 	dhcp_flags_t	flags;
 }dhcp_ctx_t;
 
+void W5500_Init_DHCP(uint8_t* mac);
 typedef void (*DHCP_Func_t)(void);
 void DHCP_INIT			(void); 
 void DHCP_DISCOVER	(void); 

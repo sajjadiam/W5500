@@ -55,7 +55,7 @@ void W5500_MemInit(void) {
 		W5500_WriteByte(W5500_SRB_Sn_RXBUF_SIZE, BSB_Sn_REG(i), sizes[i]);
 	}
 }
-static void W5500_SoftwareReset(void){
+void W5500_SoftwareReset(void){
 	// 1. Reset W5500 (Software Reset)
 	W5500_WriteByte(W5500_CRB_MR,W5500_BSB_Common,W5500_MR_RST);
 	// Wait for reset to clear (simple delay usually needed)

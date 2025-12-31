@@ -29,7 +29,8 @@ typedef enum{ // W5500 spi state
 
 void W5500_Init_static_IP(uint8_t* mac, uint8_t* ip, uint8_t* sn, uint8_t* gw); //(تنظیمات اولیه شبکه)
 
-
+void W5500_SoftwareReset(void);
+void W5500_MemInit(void);
 uint8_t W5500_SocketInit(uint8_t sn, uint16_t port,w5500_sn_proto_t protocol /*,w5500_sock_bufsize_t bufSize*/); // باز کردن سوکت در حالت TCP
 uint8_t W5500_SocketListen(uint8_t sn); // بردن سوکت به حالت Listen (برای سرور)
 
