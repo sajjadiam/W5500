@@ -109,25 +109,27 @@ int main(void)
   MX_SPI2_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-	netif_init_mac();
+	//netif_init_mac();
 	const uint8_t* mac = (uint8_t*)netif_get_mac();
-	W5500_Init_static_IP((uint8_t*)mac,ip,subnet,getway);
+	//W5500_Init_static_IP((uint8_t*)mac,ip,subnet,getway);
 	/*if(W5500_SocketInit(0, 5000,W5500_SN_MR_P_TCP)) {
 		W5500_SocketListen(0);
   }*/
 	static uint32_t t=0;
 	static w5500_phycfgr_bits_t link = 0;
+	HAL_TIM_Base_Start_IT(&htim2);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-		if(HAL_GetTick()-t>500){
+		/*if(HAL_GetTick()-t>500){
 			t=HAL_GetTick();
 			link = link_status();
-		}
-		if(dhcp_flag && link){
+		}*/
+		if(dhcp_flag ){
+			dhcp_flag = 0;
 			dhcp_stateMachine();
 			if(has_ip){
 				HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);

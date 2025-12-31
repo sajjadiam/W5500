@@ -432,19 +432,19 @@ void DHCP_RETRY(void){
 			break;
 		}
 		case dhcp_offer_timeout_err:{
-			
+			dhcp_ctx.state = DHCP_STATE_DISCOVER;
 			break;
 		}
 		case dhcp_ack_timeout_err:{
-			
+			dhcp_ctx.state = DHCP_STATE_REQUEST;
 			break;
 		}
 		case dhcp_nack_err:{
-			
+			dhcp_ctx.state = DHCP_STATE_REQUEST;
 			break;
 		}
 		default:{
-			
+			dhcp_ctx.state = DHCP_STATE_INIT;
 			break;
 		}
 	}
